@@ -1,0 +1,40 @@
+{
+  "name": "@raptor/db",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./schema": "./src/schema/index.ts",
+    "./client": "./src/client.ts"
+  },
+  "scripts": {
+    "build": "tsc --build",
+    "dev": "tsc --build --watch",
+    "lint": "eslint .",
+    "typecheck": "tsc --build",
+    "test": "vitest run",
+    "test:unit": "vitest run",
+    "test:integration": "vitest run",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx src/migrate.ts up",
+    "db:rollback": "tsx src/migrate.ts down",
+    "db:seed": "tsx src/seed.ts",
+    "db:studio": "drizzle-kit studio",
+    "ci": "pnpm lint && pnpm typecheck && pnpm test"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "0.5.8",
+    "drizzle-orm": "latest",
+    "pg": "latest"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.1",
+    "@types/pg": "latest",
+    "@vitest/coverage-v8": "5.0.3",
+    "drizzle-kit": "latest",
+    "tsx": "latest",
+    "typescript": "latest",
+    "vitest": "5.0.3"
+  }
+}
