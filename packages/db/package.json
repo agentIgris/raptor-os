@@ -25,16 +25,16 @@
   },
   "dependencies": {
     "@electric-sql/pglite": "0.5.8",
-    "drizzle-orm": "latest",
-    "pg": "latest"
+    "drizzle-orm": "0.45.4",
+    "pg": "8.23.1"
   },
   "devDependencies": {
     "@types/node": "24.10.1",
-    "@types/pg": "latest",
+    "@types/pg": "8.23.1",
     "@vitest/coverage-v8": "5.0.3",
-    "drizzle-kit": "latest",
-    "tsx": "latest",
-    "typescript": "latest",
+    "drizzle-kit": "0.31.11",
+    "tsx": "4.23.15",
+    "typescript": "6.0.3",
     "vitest": "5.0.3"
   }
 }
