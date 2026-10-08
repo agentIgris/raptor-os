@@ -1,0 +1,20 @@
+{
+  "name": "@raptor/observability",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": {
+    "build": "tsc --build",
+    "lint": "eslint .",
+    "typecheck": "tsc --build",
+    "test": "vitest run",
+    "test:unit": "vitest run",
+    "ci": "pnpm lint && pnpm typecheck && pnpm test"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.1",
+    "typescript": "latest",
+    "vitest": "5.0.3"
+  }
+}

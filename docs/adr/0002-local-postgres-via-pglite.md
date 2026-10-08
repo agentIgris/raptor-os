@@ -18,6 +18,7 @@ Attempts made, in order:
 | Direct download of `postgresql-18.6-5-windows-x64-binaries.zip` | Succeeded after resuming a truncated transfer — 384 MB, 22,098 entries |
 | `initdb` on the extracted binaries | Succeeded; cluster created |
 | `pg_ctl start` + `psql` connect | Server reached `ready to accept connections`, then **every forked child process died** |
+| **Same again, after admin access was granted** | **Identical failure** |
 
 The child-process failure is consistent and reproducible:
 
@@ -29,7 +30,18 @@ could not reserve shared memory region (addr=0000024B02800000) for child ...: er
 `0xC0000142` is `STATUS_DLL_INIT_FAILED`; error 487 is `ERROR_INVALID_ADDRESS`.
 Single-process invocations from the same binaries work correctly (`postgres --version`
 reports 18.6, `initdb` completes). The failure is specific to PostgreSQL's
-fork-plus-shared-memory process model, which the sandbox does not permit.
+fork-plus-shared-memory process model.
+
+**Root cause identified.** All 29 dependent DLLs are present beside `postgres.exe`
+(`libssl-3-x64.dll`, `libcrypto-3-x64.dll`, `libintl-9.dll`, `libiconv-2.dll`,
+`libpq.dll`, `libwinpthread-1.dll`), and neither the install nor the project sits under
+a synced folder. **McAfee antivirus is installed alongside Windows Defender.** The
+server's own log suggests the cause: *"You might have antivirus, backup, or similar
+software interfering with the database system."*
+
+Admin access does not resolve it — the restriction is process creation, not privilege.
+Disabling or adding exclusions to antivirus is a security-relevant change to the host
+that should not be made to work around a development-tooling problem, so it was not done.
 
 ## Decision
 
@@ -66,15 +78,23 @@ same-tenant FK accepted: OK
 - CI can run the identical integration tests with no service container.
 
 **Negative — accepted knowingly**
-- No TCP listener, so tools that expect a socket (`psql`, `pgAdmin`, some migration
-  tooling) cannot attach directly. Mitigated by PGlite's socket-server extension
-  where a socket is genuinely required.
 - Single-writer. The application is designed as a single Node process talking to one
   database instance, so this does not constrain us.
-- Performance is below native PostgreSQL. Irrelevant at development scale; production
-  targets native PostgreSQL.
 - PGlite ships a subset of contrib extensions. `pgcrypto` is not bundled
   (`gen_random_uuid()` is core since PostgreSQL 13, so nothing is lost).
+
+**Resolving the socket gap**
+
+The original objection to PGlite — that no TCP listener exists, so `psql` and standard
+tooling cannot attach — is closed by `@electric-sql/pglite-socket`, which serves PGlite
+over the PostgreSQL wire protocol. Verified against the real `psql` client:
+
+```
+$ psql -U postgres -h 127.0.0.1 -p 55432 -d postgres -tAc "select 'CONNECTED: ' || v from t;"
+CONNECTED: served
+```
+
+Ordinary PostgreSQL tooling therefore works unchanged.
 
 **Migration path to production**
 The application is written against standard PostgreSQL. Nothing in the schema, the

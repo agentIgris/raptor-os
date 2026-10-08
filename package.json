@@ -34,7 +34,7 @@
     "globals": "latest",
     "prettier": "latest",
     "turbo": "latest",
-    "typescript": "latest",
+    "typescript": "6.0.3",
     "typescript-eslint": "latest",
     "vitest": "5.0.3"
   }

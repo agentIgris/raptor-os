@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
-import { PGlite } from "@electric-sql/pglite";
+import type { PGlite } from "@electric-sql/pglite";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const MIGRATIONS_DIR = join(here, "..", "migrations");

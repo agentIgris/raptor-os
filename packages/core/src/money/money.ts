@@ -23,9 +23,6 @@ export type CurrencyCode = string;
 const DECIMAL_PATTERN = /^-?\d+(\.\d+)?$/;
 const CURRENCY_PATTERN = /^[A-Z]{3}$/;
 
-/** 100% expressed at the internal 1e4 percent scale. */
-const ONE_HUNDRED_PERCENT = 1_000_000n;
-
 export interface Money {
   /** Amount in minor units (1 major unit = 10^MONEY_SCALE minor units). */
   readonly minor: bigint;
