@@ -1,0 +1,41 @@
+{
+  "name": "raptor-os",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Multi-tenant Esports Organisation OS",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "packageManager": "pnpm@12.10.1",
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "lint:fix": "turbo run lint -- --fix",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "test:unit": "turbo run test:unit",
+    "test:integration": "turbo run test:integration",
+    "test:e2e": "turbo run test:e2e",
+    "test:a11y": "turbo run test:a11y",
+    "db:generate": "turbo run db:generate",
+    "db:migrate": "turbo run db:migrate",
+    "db:rollback": "turbo run db:rollback",
+    "db:seed": "turbo run db:seed",
+    "db:studio": "turbo run db:studio",
+    "verify": "pnpm lint && pnpm typecheck && pnpm test",
+    "ci": "turbo run ci"
+  },
+  "devDependencies": {
+    "@eslint/js": "latest",
+    "@types/node": "24.10.1",
+    "eslint": "10.12.0",
+    "globals": "latest",
+    "prettier": "latest",
+    "turbo": "latest",
+    "typescript": "latest",
+    "typescript-eslint": "latest",
+    "vitest": "5.0.3"
+  }
+}

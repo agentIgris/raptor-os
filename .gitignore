@@ -1,0 +1,44 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# build output
+dist/
+build/
+.next/
+out/
+*.tsbuildinfo
+
+# testing
+coverage/
+playwright-report/
+test-results/
+blob-report/
+.playwright/
+
+# environment — never commit real credentials
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# logs
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# editor / OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# local database artefacts
+*.sqlite
+pgdata/
+/tmp/
+
+# turbo
+.turbo/

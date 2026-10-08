@@ -1,0 +1,251 @@
+﻿RAPTOR LEGACY ERD - PLAIN TEXT
+=============================
+Source: E:\Raptor\_clone\**\*.sql   (49 tables extracted across 51 SQL files)
+Machine-generated. Confidence: HIGH for objects present in the scripts,
+UNKNOWN for the live deployed state (no database was queried).
+
+HOW TO READ THIS
+----------------
+Solid line   = declared FOREIGN KEY
+Dashed line  = logical relationship with NO foreign key
+[V]          = a view, not a table
+(!)          = known defect documented in 12_DATABASE_RELATIONSHIPS.md
+
+
+1. IDENTITY
+-----------
+users  (32+ columns; IS the auth profile, not an employment record)
+  PK id
+  UK email (CASE-SENSITIVE unique - GoTrue is case-insensitive)   (!)
+  name / full_name / display_name  = 3 name columns              (!)
+  password text  <-- also hashed by GoTrue in auth.users          (!)
+  role text  = SINGLE enum, 1 role per person                    (!)
+  status text  = 'active' | 'inactive' | 'banned' | 'suspended'
+  team_id -> teams.id          NULLABLE, no ON DELETE            (!)
+  pan_number, aadhaar_number, dl_number, passport_number        PII
+  payment_screenshot text  -> a PUBLIC storage URL                (!)
+  entry_fee numeric
+  created_at timestamptz        NO updated_at                     (!)
+
+profiles  (parallel person record)
+  DASHED users <-> profiles  = THE SAME HUMAN, no FK, no sync     (!)
+  full_name / display_name / email / phone_number / discord_id
+  bgmi_id / date_of_birth / pan_number / aadhaar_number
+  dl_number / passport_number / bank_account_number
+  bank_ifsc_code / emergency_contact_* / address_line1..2
+  city / state / country / postal_code
+  device_model / device_os / ip_address / rlS
+  => 100% of these columns are PII. Table is READABLE BY anon.    (CRITICAL)
+
+user_agreements
+  user_id -> users.id
+  content text  (WORLD-WRITABLE, no content hash)                (CRITICAL)
+  UNIQUE(user_id, agreement_type) MISSING although the API
+    upserts on exactly that pair                                    (!)
+  accepted_at, ip_address
+
+
+2. COMPETITIVE
+--------------
+teams
+  PK id;  name, tag, logo_url, game, region, status, discord_id
+  tier text  = PRICE BAND (s8/s4/s2/s1), not a division          (!)
+  prize_pool numeric          = historical integer, no currency   (!)
+  coach_id -> users.id        NULLABLE                             (!)
+  <-- CIRCULAR with users.team_id; both nullable, both unenforced  (!)
+
+rosters
+  user_id -> users.id
+  team_id -> teams.id
+  in_game_role, status, created_at
+  UNIQUE(team_id, user_id) MISSING
+  <-- REDUNDANT with users.team_id; a player may be on many       (!)
+
+tier_defaults   (rate card; joined by TEXT match on tier, no FK)
+  tier text; entry_fee, prize_pool, slot_expense numeric
+
+
+3. FINANCE  (all money is integer/ numeric with NO currency column) (!)
+------------------------------------------------------------------------
+slots
+  team_id -> teams.id
+  tier text; slot_number text; status; amount numeric
+  <-- A SLOT IS A PURCHASE, NOT A SEED IN A BRACKET               (!)
+  <-- NOTHING prevents overselling a tier                           (!)
+
+slot_expenses
+  slot_id -> slots.id
+  amount numeric; description; status
+  <-- NO invoice reference, NO attachment, NO approval             (!)
+
+winnings
+  team_id -> teams.id ; slot_id -> slots.id (nullable)
+  amount numeric; currency text (unused); distribution_method text
+  <-- TEAM-LEVEL ONLY. Never allocated to a person.                (CRITICAL)
+
+prize_pools
+  tier text; total_amount numeric; status
+  <-- NOT linked to slots (no FK)                                  (!)
+
+
+4. TRAINING / ATTENDANCE
+-----------------------
+practice_session_config      (1 config row per weekday)
+  day_of_week, start_time time, end_time time, is_active
+  <-- sessions are generated from this; generation is NOT idempotent (!)
+
+sessions
+  team_id -> teams.id
+  session_type text; session_time TEXT; session_date date; status
+  <-- session_time is TEXT while start_time is a real TIME          (!)
+
+attendances
+  user_id -> users.id ; session_id -> sessions.id (NULLABLE)
+  status text; session_time text
+  UNIQUE(session_id, user_id) MISSING  -> duplicates are expected (!)
+  <-- API writes a `notes` column that DOES NOT EXIST here           (!)
+  <-- DELETE handler throws ReferenceError (getUserFromRequest)     (!)
+
+holidays
+  holiday_date date; description; is_working_day
+  <-- ORPHANED: no sessions reference it
+
+
+5. PERFORMANCE
+--------------
+performances
+  user_id -> users.id ; team_id -> teams.id (NULLABLE)
+  slot_id -> slots.id   (added later)
+  slot uuid              (pre-existing, NO FK, semantics ambiguous) (!)
+  kills, assists, headshots, damage, total_score numeric
+  survival_time double precision   <-- other tables use interval  (!)
+  kills_per_game, raw_text, created_at
+  NO updated_at, NO source column, NO unique constraint            (!)
+  <-- 5 separate entry forms write here; OCR can fabricate rows     (!)
+  <-- players can READ every performance row in their team          (!)
+
+performance_records   (designed for ingestion, NEVER IMPLEMENTED)
+  user_id -> users.id; external_id, source, raw_data jsonb
+
+
+6. TRYOUTS  (the best-modelled domain in the system)
+---------------------------------------------------
+tryouts
+  team_id -> teams.id ; team_ids uuid[]  (ARRAY, no FK)            (!)
+  title, status, max_participants, current_participants, created_at
+
+tryout_applications
+  tryout_id -> tryouts.id ; user_id -> users.id
+  discord_id text, status, stage, score, created_at
+  <-- an APPLICANT may have no users row (auth-only signup)         (!)
+
+tryout_evaluations
+  application_id -> tryout_applications.id ; evaluator_id -> users.id
+  technical / strategic / teamwork / attitude scores; notes
+
+tryout_invitations
+  application_id -> tryout_applications.id ; team_id -> teams.id
+  status, invitation_token, responded_at
+  <-- responded_at NULLABLE: unread state is inferred               (!)
+
+tryout_sessions
+  tryout_id -> tryouts.id ; session_date date ; attendance_status
+
+tryout_stats  [V]  VIEW - six-way join then GROUP BY                (!)
+  <-- created WITHOUT security_invoker => BYPASSES RLS              (!)
+  <-- double-counts: a multi-table join inflates every count        (!)
+
+
+7. DISCORD / COMMS / OPS
+------------------------
+discord_webhooks
+  webhook_url text  (CREDENTIAL, stored in a database table)        (CRITICAL)
+
+discord_servers           (UNUSED)
+communication_settings
+  team_id -> teams.id ; setting_key ; enabled ; config jsonb
+  UNIQUE(team_id, setting_key) does NOT constrain NULL rows         (!)
+
+communication_logs
+  user_id -> users.id ; channel, message_type, content
+  <-- FORGEABLE: no signature, no immutability, no provenance       (!)
+
+bot_attendance            (UNUSED)
+attendance_debug_log      (UNUSED, contains PII, UNPROTECTED)       (!)
+admin_config
+  config_key, config_value, description, category
+  <-- UNTYPED key/value, WORLD-WRITABLE, used for app-wide toggles  (CRITICAL)
+
+
+8. RELATIONSHIP CLASSIFICATION
+------------------------------
+ONE-TO-ONE
+  (none enforced; users and profiles would be 1:1 in intent only)
+
+ONE-TO-MANY
+  teams -> rosters / sessions / slots / winnings / tryouts
+  users  -> performances / attendances / user_agreements
+  tryouts -> tryout_applications -> tryout_evaluations / tryout_invitations
+  slots   -> slot_expenses / winnings / performances
+
+MANY-TO-MANY
+  users <-> teams, via rosters          (no join table metadata)
+  users <-> tryouts, via tryout_applications
+  teams <-> tryouts, via the team_ids ARRAY (no FK, no metadata)  (!)
+
+REDUNDANT
+  users.team_id  <->  rosters.team_id            two sources of truth
+  performances.slot (uuid, no FK)  <->  performances.slot_id
+  profiles  <->  users             the same human, twice
+  users.password  <->  auth.users.encrypted_password
+
+ORPHANABLE
+  attendances.session_id (nullable, no ON DELETE behaviour declared)
+  performances.team_id (nullable), performances.slot / slot_id
+  rosters.team_id / rosters.user_id
+  tryout_applications.user_id  (applicant has no users row)
+  tryouts.team_ids uuid[]       (array cannot be constrained)
+  winnings.slot_id (nullable)
+  holidays                        (referenced by nothing)
+
+CIRCULAR
+  users.team_id  ->  teams.id
+  teams.coach_id -> users.id
+  Both nullable and unenforced: a user can belong to a team that they
+  themselves coach, with no constraint and no way to detect it.
+
+MISSING CONSTRAINTS (summary)
+  UNIQUE(team_id, user_id) on rosters
+  UNIQUE(session_id, user_id) on attendances
+  UNIQUE(user_id, slot_id) on performances
+  UNIQUE(user_id, agreement_type) on user_agreements
+  UNIQUE(bgmi_id) / UNIQUE(discord_id) on users
+  FK on performances.slot
+  FK on tryouts.team_ids elements
+  FK on holidays
+  CHECK on teams.tier against tier_defaults.tier
+  FK on sessions.practice_session_config_id
+
+
+9. WHAT IS ENTIRELY ABSENT FROM THE SCHEMA
+------------------------------------------
+  organization / tenant      <-- blocks multi-tenancy entirely
+  org_membership             <-- blocks employment modelling
+  person / identity          <-- users conflates login + human + job
+  engagement / role_assignment  <-- one role per person, no history
+  contract / agreement_version  <-- no provable acceptance
+  compensation / payroll     <-- no pay of any kind
+  invoice / payment / ledger <-- no accounting
+  budget / expense           <-- only slot_expenses, no invoice
+  prize_allocation           <-- winnings is never split
+  event / competition / entry / result  <-- no match, opponent, bracket
+  sponsor / sponsorship / obligation    <-- nothing commercial
+  creator / content          <-- no creator or content entity
+  travel / asset / facility / task / workflow
+  audit_log                  <-- nothing records who did what
+  notification / preference
+  api_key / webhook_endpoint / subscription / tenant
+  archived_at / deleted_at   <-- declared but NEVER USED           (!)
+
+See: AUDIT/diagrams/erd.mmd (Mermaid), AUDIT/database/table-inventory.csv,
+AUDIT/database/rls-policy-register.csv, and 12_DATABASE_RELATIONSHIPS.md

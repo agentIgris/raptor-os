@@ -1,0 +1,29 @@
+{
+  "name": "@raptor/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./money": "./src/money/index.ts",
+    "./prize": "./src/prize/index.ts",
+    "./attendance": "./src/attendance/index.ts"
+  },
+  "scripts": {
+    "build": "tsc --build",
+    "dev": "tsc --build --watch",
+    "lint": "eslint .",
+    "typecheck": "tsc --build --noEmit false --emitDeclarationOnly",
+    "test": "vitest run",
+    "test:unit": "vitest run",
+    "test:watch": "vitest",
+    "test:integration": "echo \"no integration tests in core\"",
+    "test:coverage": "vitest run --coverage",
+    "ci": "pnpm lint && pnpm typecheck && pnpm test"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "5.0.3",
+    "typescript": "latest",
+    "vitest": "5.0.3"
+  }
+}

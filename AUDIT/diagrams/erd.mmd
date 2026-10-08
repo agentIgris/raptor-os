@@ -1,0 +1,380 @@
+﻿%% Raptor legacy ERD - machine-generated from SQL migration scripts
+%% Source: E:\Raptor\_clone\**\*.sql (49 tables extracted)
+%% Render: https://mermaid.live  |  Confidence: HIGH for tables/FKs present, UNKNOWN for live state
+
+erDiagram
+
+    %% ============ IDENTITY (legacy: users IS the auth profile) ============
+    users {
+        uuid id PK
+        text name
+        text email UK
+        text password
+        text full_name
+        text display_name
+        text role
+        text status
+        text phone_number
+        text discord_id
+        text bgmi_id
+        text pan_number
+        text aadhaar_number
+        text dl_number
+        text passport_number
+        uuid team_id FK
+        numeric entry_fee
+        text payment_status
+        text payment_screenshot
+        timestamptz created_at
+    }
+
+    profiles {
+        uuid id PK
+        text full_name
+        text display_name
+        text email
+        text phone_number
+        text discord_id
+        text bgmi_id
+        date date_of_birth
+        text pan_number
+        text aadhaar_number
+        text dl_number
+        text passport_number
+        text bank_account_number
+        text bank_ifsc_code
+        text emergency_contact_name
+        text emergency_contact_phone
+        text address_line1
+        text address_line2
+        text city
+        text state
+        text country
+        text postal_code
+        text device_model
+        text device_os
+        text ip_address
+        boolean rlS
+    }
+
+    user_agreements {
+        uuid id PK
+        uuid user_id FK
+        text agreement_type
+        text content
+        text version
+        timestamptz accepted_at
+        text ip_address
+    }
+
+    %% ============ COMPETITIVE ============
+    teams {
+        uuid id PK
+        text name
+        text tag
+        text logo_url
+        text tier
+        text game
+        text region
+        numeric prize_pool
+        text discord_id
+        text status
+        uuid coach_id FK
+        timestamptz created_at
+    }
+
+    rosters {
+        uuid id PK
+        uuid user_id FK
+        uuid team_id FK
+        text in_game_role
+        text status
+        timestamptz created_at
+    }
+
+    tier_defaults {
+        uuid id PK
+        text tier
+        numeric entry_fee
+        numeric prize_pool
+        numeric slot_expense
+    }
+
+    %% ============ FINANCE ============
+    slots {
+        uuid id PK
+        uuid team_id FK
+        text tier
+        text slot_number
+        text status
+        numeric amount
+        timestamptz created_at
+    }
+
+    slot_expenses {
+        uuid id PK
+        uuid slot_id FK
+        numeric amount
+        text description
+        text status
+        timestamptz created_at
+    }
+
+    winnings {
+        uuid id PK
+        uuid team_id FK
+        uuid slot_id FK
+        numeric amount
+        text currency
+        text distribution_method
+        text notes
+        timestamptz created_at
+    }
+
+    prize_pools {
+        uuid id PK
+        text tier
+        numeric total_amount
+        text status
+    }
+
+    %% ============ TRAINING / ATTENDANCE ============
+    practice_session_config {
+        uuid id PK
+        text day_of_week
+        time start_time
+        time end_time
+        boolean is_active
+    }
+
+    sessions {
+        uuid id PK
+        uuid team_id FK
+        text session_type
+        text session_time
+        date session_date
+        text status
+        timestamptz created_at
+    }
+
+    attendances {
+        uuid id PK
+        uuid user_id FK
+        uuid session_id FK
+        text status
+        text session_time
+        timestamptz created_at
+    }
+
+    holidays {
+        uuid id PK
+        date holiday_date
+        text description
+        boolean is_working_day
+    }
+
+    %% ============ PERFORMANCE ============
+    performances {
+        uuid id PK
+        uuid user_id FK
+        uuid team_id FK
+        uuid slot_id FK
+        uuid slot
+        numeric kills
+        numeric assists
+        numeric headshots
+        numeric survival_time
+        numeric damage
+        numeric total_score
+        numeric kills_per_game
+        text raw_text
+        timestamptz created_at
+    }
+
+    performance_records {
+        uuid id PK
+        uuid user_id FK
+        text external_id
+        text source
+        jsonb raw_data
+        timestamptz created_at
+    }
+
+    %% ============ TRYOUTS (best-modelled domain) ============
+    tryouts {
+        uuid id PK
+        text title
+        text status
+        uuid team_id FK
+        uuid_array team_ids
+        int max_participants
+        int current_participants
+        timestamptz created_at
+    }
+
+    tryout_applications {
+        uuid id PK
+        uuid tryout_id FK
+        uuid user_id FK
+        text discord_id
+        text status
+        text stage
+        numeric score
+        timestamptz created_at
+    }
+
+    tryout_evaluations {
+        uuid id PK
+        uuid application_id FK
+        uuid evaluator_id FK
+        numeric technical_score
+        numeric strategic_score
+        numeric teamwork_score
+        numeric attitude_score
+        text notes
+        timestamptz created_at
+    }
+
+    tryout_invitations {
+        uuid id PK
+        uuid application_id FK
+        uuid team_id FK
+        text status
+        text invitation_token
+        timestamptz responded_at
+    }
+
+    tryout_sessions {
+        uuid id PK
+        uuid tryout_id FK
+        date session_date
+        text attendance_status
+    }
+
+    tryout_stats {
+        uuid tryout_id
+        int total_applications
+        int evaluated_count
+        numeric avg_score
+    }
+
+    %% ============ DISCORD / COMMS / OPS ============
+    discord_webhooks {
+        uuid id PK
+        text name
+        text webhook_url
+        boolean is_active
+        timestamptz created_at
+    }
+
+    discord_servers {
+        uuid id PK
+        text server_id
+        text server_name
+        text invite_url
+    }
+
+    communication_settings {
+        uuid id PK
+        uuid team_id FK
+        text setting_key
+        boolean enabled
+        jsonb config
+    }
+
+    communication_logs {
+        uuid id PK
+        uuid user_id FK
+        text channel
+        text message_type
+        text content
+        timestamptz created_at
+    }
+
+    bot_attendance {
+        uuid id PK
+        uuid user_id FK
+        text discord_id
+        text status
+        timestamptz created_at
+    }
+
+    attendance_debug_log {
+        uuid id PK
+        uuid user_id FK
+        text debug_data
+        timestamptz created_at
+    }
+
+    admin_config {
+        uuid id PK
+        text config_key
+        text config_value
+        text description
+        text category
+        timestamptz updated_at
+    }
+
+    %% ============ RELATIONSHIPS ============
+    users ||--o{ rosters : "rostered via user_id (NO unique)"
+    users ||--o{ performances : "performs"
+    users ||--o{ attendances : "attends"
+    users ||--o| teams : "team_id - REDUNDANT with rosters"
+    users ||--o{ user_agreements : "signs"
+    users ||--o{ tryout_applications : "applies"
+    users ||--o{ communication_logs : "logs"
+    users ||--o{ bot_attendance : "bot records"
+    users ||--o{ attendance_debug_log : "debug records"
+
+    teams ||--o{ rosters : "has"
+    teams ||--o{ sessions : "runs"
+    teams ||--o{ slots : "buys"
+    teams ||--o{ winnings : "wins"
+    teams ||--o{ performances : "scored"
+    teams ||--o{ performances : "scored via team_id"
+    teams ||--o| users : "coach_id - CIRCULAR with users.team_id"
+    teams ||--o{ tryouts : "hosts"
+    teams ||--o{ communication_settings : "configures"
+    teams ||--o{ tryout_invitations : "invites"
+
+    slots ||--o{ slot_expenses : "incurs"
+    slots ||--o{ winnings : "pays out"
+    slots ||--o{ performances : "referenced by slot_id"
+    slots ||--o{ performances : "referenced by slot (TEXT, no FK)"
+
+    sessions ||--o{ attendances : "records"
+    sessions }o--|| practice_session_config : "generated from (logical, no FK)"
+    sessions }o--o| holidays : "skips (logical, no FK)"
+
+    tryouts ||--o{ tryout_applications : "receives"
+    tryouts ||--o{ tryout_sessions : "schedules"
+    tryouts ||--o{ tryout_stats : "aggregated by (VIEW, RLS-bypassing)"
+    tryout_applications ||--o{ tryout_evaluations : "scored by"
+    tryout_applications ||--o{ tryout_invitations : "invited via"
+    tryout_evaluations }o--|| users : "evaluator_id"
+
+    profiles }o..o{ users : "DUPLICATE PERSON RECORD - no FK, no sync"
+    tier_defaults }o..o{ teams : "tier rate card (text match, no FK)"
+    tier_defaults }o..o{ slots : "tier rate card (text match, no FK)"
+    prize_pools }o..o{ slots : "pool (no FK)"
+
+    note_for_class "REDUNDANT relationships" {
+        "users.team_id  <->  rosters.team_id"
+        "performances.slot (text)  <->  performances.slot_id (uuid)"
+        "profiles  <->  users (same human, two tables)"
+        "users.password (text)  <->  auth.users (GoTrue)"
+    }
+    note_for_class "ORPHANABLE" {
+        "attendances.session_id  (nullable, no ON DELETE)"
+        "performances.team_id  (nullable)"
+        "performances.slot / slot_id  (no FK on slot; slot_id nullable)"
+        "rosters.team_id / user_id  (no ON DELETE CASCADE declared)"
+        "tryout_applications.user_id  (applicant may have no users row)"
+        "tryouts.team_ids uuid[]  (array, no FK)"
+        "winnings.slot_id  (nullable, no FK guarantee)"
+    }
+    note_for_class "CIRCULAR" {
+        "users.team_id  ->  teams.id"
+        "teams.coach_id  ->  users.id"
+        "Both nullable, both unenforced: a user can be on a team whose coach is that same user."
+    }
