@@ -9,7 +9,7 @@ adding a new ADR that supersedes the old one — records are never edited or del
 | # | Decision | Status |
 | --- | --- | --- |
 | [0001](0001-rebuild-from-scratch.md) | Rebuild from scratch; legacy is reference only | Accepted |
-| [0002](0002-local-postgres-via-pglite.md) | Local PostgreSQL via PGlite, not a Postgres server | Accepted |
+| ~~[0002](0002-local-postgres-via-pglite.md)~~ | Local PostgreSQL via PGlite | **Superseded by 0014** |
 | [0003](0003-bigint-money.md) | Money is bigint minor units, never floating point | Accepted |
 | [0004](0004-largest-remainder-allocation.md) | Largest-remainder allocation with stable-sort tie-break | Accepted |
 | [0005](0005-fixed-plus-percentage-deduct-first.md) | `fixed_plus_percentage` deducts fixed amounts before splitting | Accepted |
@@ -20,6 +20,8 @@ adding a new ADR that supersedes the old one — records are never edited or del
 | [0010](0010-monorepo-package-boundaries.md) | pnpm workspaces monorepo; pure domain logic isolated | Accepted |
 | [0011](0011-composite-foreign-keys-for-tenancy.md) | Every tenant FK includes `org_id` | Accepted |
 | [0012](0012-quality-gates-must-stay-enabled.md) | Build-time lint and typecheck gates stay enabled | Accepted |
+| [0013](0013-typescript-pinned-to-6.md) | TypeScript pinned to 6.0.3 (linter ceiling) | Accepted |
+| [0014](0014-native-postgres-supersedes-pglite.md) | Native PostgreSQL 18.6 local; supersedes ADR-0002 | Accepted |
 
 ## Status vocabulary
 
