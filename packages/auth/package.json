@@ -1,0 +1,35 @@
+{
+  "name": "@raptor/auth",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./config": "./src/config.ts",
+    "./roles": "./src/roles.ts",
+    "./schema.sql": "./src/schema.sql"
+  },
+  "scripts": {
+    "build": "tsc --build",
+    "dev": "tsc --build --watch",
+    "lint": "eslint .",
+    "typecheck": "tsc --build --noEmit false --emitDeclarationOnly",
+    "test": "vitest run",
+    "test:unit": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "ci": "pnpm lint && pnpm typecheck && pnpm test"
+  },
+  "dependencies": {
+    "better-auth": "1.7.7",
+    "kysely": "0.28.8",
+    "pg": "8.23.1"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.1",
+    "@types/pg": "8.23.1",
+    "@vitest/coverage-v8": "5.0.3",
+    "typescript": "6.0.3",
+    "vitest": "5.0.3"
+  }
+}

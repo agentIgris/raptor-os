@@ -21,7 +21,8 @@ adding a new ADR that supersedes the old one — records are never edited or del
 | [0011](0011-composite-foreign-keys-for-tenancy.md) | Every tenant FK includes `org_id` | Accepted |
 | [0012](0012-quality-gates-must-stay-enabled.md) | Build-time lint and typecheck gates stay enabled | Accepted |
 | [0013](0013-typescript-pinned-to-6.md) | TypeScript pinned to 6.0.3 (linter ceiling) | Accepted |
-| [0014](0014-native-postgres-supersedes-pglite.md) | Native PostgreSQL 18.6 local; supersedes ADR-0002 | Accepted |
+| ~~[0014](0014-native-postgres-supersedes-pglite.md)~~ | Native PostgreSQL 18.6 local | **Superseded by 0015** |
+| [0015](0015-pglite-restored-after-native-postgres-retest.md) | PGlite restored as local DB; supersedes 0014 | Accepted |
 
 ## Status vocabulary
 
