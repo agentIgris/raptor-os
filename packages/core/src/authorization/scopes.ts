@@ -18,8 +18,17 @@
 /**
  * Every scope type the product recognises, ordered broadest to narrowest.
  *
- * The order is load-bearing: `self` is last because it is the narrowest scope
- * that exists, and the engine relies on array position being rank order.
+ * This array exists for iteration order (navigation menus, compiled matrices)
+ * and for display. Breadth itself is read from `SCOPE_RANK` below, never from
+ * array position, because a rank map is the thing RLS can store as a column and
+ * the thing a database constraint can be written against.
+ *
+ * The two must agree, and they are held to it by `scopes.test.ts`, which pins
+ * the array to an exact literal, asserts every adjacent pair descends in rank,
+ * and asserts the ranks are dense from zero. That coverage is deliberate: two
+ * parallel representations of one ordering is exactly the shape of defect that
+ * produced the legacy app's five disagreeing permission models (ADR-0001), so
+ * the agreement is pinned by test rather than left to a reviewer noticing.
  */
 export const SCOPE_TYPES = [
   "organization",
