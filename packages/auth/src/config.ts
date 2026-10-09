@@ -227,7 +227,19 @@ function mfaGuardCreatesPrivilegedUser(incoming: Record<string, unknown>): boole
  * table the auth instance had never touched. Making the dependency impossible to
  * leave out converts that whole class of failure into a compile error.
  */
-export function buildAuthOptions(env: AuthEnv, database: Pool): BetterAuthOptions {
+/**
+ * The database handle Better Auth will accept.
+ *
+ * Typed as whatever `better-auth@1.7.7` itself declares rather than as
+ * `pg.Pool`, because the adapter duck-types its driver: anything exposing
+ * `connect()` is built into a Kysely `PostgresDialect`. Production still passes
+ * a real `pg.Pool` from {@link createPool}; the type is widened so the test
+ * harness can hand Better Auth the PGlite session without a cast, and without a
+ * `pg` dependency in the assertion path.
+ */
+export type AuthDatabase = NonNullable<BetterAuthOptions["database"]>;
+
+export function buildAuthOptions(env: AuthEnv, database: AuthDatabase): BetterAuthOptions {
   const isProduction = env.nodeEnv === "production";
 
   return {

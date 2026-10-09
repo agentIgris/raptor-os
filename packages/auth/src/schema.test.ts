@@ -45,7 +45,7 @@ afterAll(async () => {
 
 describe("the role vocabulary agrees across every place it is written", () => {
   it("declares exactly the roles in roles.ts in the database CHECK constraint", async () => {
-    const result = await fixture.migratorPool.query<{ pg_get_constraintdef: string }>(
+    const result = await fixture.ownerPool.query<{ pg_get_constraintdef: string }>(
       `SELECT pg_get_constraintdef(oid) AS pg_get_constraintdef
        FROM pg_constraint
        WHERE conname = 'user_role_membership_check' AND conrelid = '"user"'::regclass`,
@@ -99,7 +99,7 @@ describe("the role vocabulary agrees across every place it is written", () => {
 
 describe("every Better Auth table exists", () => {
   it.each(EXPECTED_TABLES)("creates %s", async (table) => {
-    const result = await fixture.migratorPool.query<{ n: number }>(
+    const result = await fixture.ownerPool.query<{ n: number }>(
       `SELECT count(*)::int AS n
        FROM information_schema.tables
        WHERE table_schema = 'public' AND table_name = $1`,
@@ -180,7 +180,7 @@ describe("Better Auth's expected columns exist with the expected types", () => {
   };
 
   it.each(Object.entries(EXPECTED_COLUMNS))("matches %s", async (table, columns) => {
-    const result = await fixture.migratorPool.query<{ column_name: string; data_type: string }>(
+    const result = await fixture.ownerPool.query<{ column_name: string; data_type: string }>(
       `SELECT column_name, data_type
        FROM information_schema.columns
        WHERE table_schema = 'public' AND table_name = $1`,
@@ -199,7 +199,7 @@ describe("constraints exist", () => {
   it("has a unique index on user email", async () => {
     // Without it, two accounts could share an address and the "sign in" lookup
     // would return an arbitrary one of them.
-    const result = await fixture.migratorPool.query<{ n: number }>(
+    const result = await fixture.ownerPool.query<{ n: number }>(
       `SELECT count(*)::int AS n
        FROM pg_constraint
        WHERE conrelid = '"user"'::regclass AND contype = 'u'
@@ -210,7 +210,7 @@ describe("constraints exist", () => {
   });
 
   it("has a unique index on session token", async () => {
-    const result = await fixture.migratorPool.query<{ n: number }>(
+    const result = await fixture.ownerPool.query<{ n: number }>(
       `SELECT count(*)::int AS n
        FROM pg_constraint
        WHERE conrelid = '"session"'::regclass AND contype = 'u'
@@ -223,7 +223,7 @@ describe("constraints exist", () => {
   it("cascades deletes from user to session and account", async () => {
     // Deleting an account must not orphan live sessions; an orphaned session is a
     // credential with no owner to revoke it.
-    const result = await fixture.migratorPool.query<{ conname: string; confdeltype: string }>(
+    const result = await fixture.ownerPool.query<{ conname: string; confdeltype: string }>(
       `SELECT conname, confdeltype FROM pg_constraint
        WHERE contype = 'f' AND confrelid = '"user"'::regclass`,
     );
@@ -242,7 +242,7 @@ describe("constraints exist", () => {
     ["two_factor_failed_count_nonnegative_check", '"twoFactor"'],
     ["rate_limit_count_nonnegative_check", '"rateLimit"'],
   ])("installs %s", async (constraint, table) => {
-    const result = await fixture.migratorPool.query<{ n: number }>(
+    const result = await fixture.ownerPool.query<{ n: number }>(
       "SELECT count(*)::int AS n FROM pg_constraint WHERE conname = $1 AND conrelid = $2::regclass",
       [constraint, table],
     );
@@ -253,7 +253,7 @@ describe("constraints exist", () => {
 
 describe("the MFA guard trigger is installed", () => {
   it("exists on the user table", async () => {
-    const result = await fixture.migratorPool.query<{ n: number }>(
+    const result = await fixture.ownerPool.query<{ n: number }>(
       `SELECT count(*)::int AS n FROM pg_trigger
        WHERE tgname = 'user_mfa_guard_trigger' AND NOT tgisinternal`,
     );
@@ -264,7 +264,7 @@ describe("the MFA guard trigger is installed", () => {
   it("fires on both INSERT and UPDATE", async () => {
     // A trigger on INSERT alone would still permit promoting an existing account,
     // which is the escalation that matters.
-    const result = await fixture.migratorPool.query<{ tgtype: number }>(
+    const result = await fixture.ownerPool.query<{ tgtype: number }>(
       `SELECT tgtype FROM pg_trigger
        WHERE tgname = 'user_mfa_guard_trigger' AND NOT tgisinternal`,
     );

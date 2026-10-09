@@ -206,6 +206,9 @@ importers:
         specifier: 8.23.1
         version: 8.23.1
     devDependencies:
+      '@electric-sql/pglite':
+        specifier: 0.5.8
+        version: 0.5.8
       '@types/node':
         specifier: 24.10.1
         version: 24.10.1

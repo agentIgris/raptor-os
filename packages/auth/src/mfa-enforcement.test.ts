@@ -45,7 +45,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await truncateAuthTables(fixture.migratorPool);
+  await truncateAuthTables(fixture);
 });
 
 /** Insert a user, returning the PostgreSQL error code when the trigger fires. */
@@ -55,7 +55,7 @@ async function tryInsertUser(input: {
   twoFactorEnabled: boolean;
 }): Promise<{ ok: true } | { ok: false; code: string; message: string }> {
   try {
-    await fixture.migratorPool.query(
+    await fixture.ownerPool.query(
       `INSERT INTO "user" ("name", "email", "emailVerified", "role", "twoFactorEnabled")
        VALUES ('MFA Tester', $1, true, $2, $3)`,
       [input.email, input.role, input.twoFactorEnabled],
@@ -71,9 +71,9 @@ async function tryInsertUser(input: {
 async function tryUpdateRole(userId: string, role: string, twoFactorEnabled?: boolean): Promise<string | null> {
   try {
     if (twoFactorEnabled === undefined) {
-      await fixture.migratorPool.query('UPDATE "user" SET "role" = $2 WHERE "id" = $1', [userId, role]);
+      await fixture.ownerPool.query('UPDATE "user" SET "role" = $2 WHERE "id" = $1', [userId, role]);
     } else {
-      await fixture.migratorPool.query(
+      await fixture.ownerPool.query(
         'UPDATE "user" SET "role" = $2, "twoFactorEnabled" = $3 WHERE "id" = $1',
         [userId, role, twoFactorEnabled],
       );
@@ -95,7 +95,7 @@ async function createLoginableUser(email: string, role: string, twoFactorEnabled
   );
   expect([200, 422]).toContain(signUp.status);
 
-  const promoted = await fixture.migratorPool.query<{ id: string }>(
+  const promoted = await fixture.ownerPool.query<{ id: string }>(
     'UPDATE "user" SET "emailVerified" = true, "role" = $2, "twoFactorEnabled" = $3 WHERE "email" = $1 RETURNING "id"',
     [email, role, twoFactorEnabled],
   );
@@ -131,7 +131,7 @@ describe("MFA is mandatory for privileged roles", () => {
       const created = await tryInsertUser({ email: `promote-${role}@example.invalid`, role: "player", twoFactorEnabled: false });
       expect(created.ok).toBe(true);
 
-      const rows = await fixture.migratorPool.query<{ id: string }>(
+      const rows = await fixture.ownerPool.query<{ id: string }>(
         'SELECT "id" FROM "user" WHERE "email" = $1',
         [`promote-${role}@example.invalid`],
       );
@@ -149,7 +149,7 @@ describe("MFA is mandatory for privileged roles", () => {
       });
       expect(created.ok).toBe(true);
 
-      const rows = await fixture.migratorPool.query<{ id: string }>(
+      const rows = await fixture.ownerPool.query<{ id: string }>(
         'SELECT "id" FROM "user" WHERE "email" = $1',
         [`disable-${role}@example.invalid`],
       );
@@ -205,14 +205,14 @@ describe("session issuance honours the MFA requirement", () => {
     // Reproduce the exact state the trigger exists to prevent: a privileged row
     // with no enrolment, created before the trigger existed or by a disabled
     // trigger. The session gate must still refuse.
-    await fixture.migratorPool.query(
+    await fixture.ownerPool.query(
       'ALTER TABLE "user" DISABLE TRIGGER user_mfa_guard_trigger',
     );
 
     try {
       await createLoginableUser("bypassed@example.invalid", "admin", false);
     } finally {
-      await fixture.migratorPool.query('ALTER TABLE "user" ENABLE TRIGGER user_mfa_guard_trigger');
+      await fixture.ownerPool.query('ALTER TABLE "user" ENABLE TRIGGER user_mfa_guard_trigger');
     }
 
     const response = await fixture.auth.handler(
@@ -265,8 +265,8 @@ describe("TOTP configuration", () => {
   it("persists the TOTP secret in the twoFactor table, never in the user row", async () => {
     const userId = await createLoginableUser("secret@example.invalid", "player", false);
 
-    const secrets = await fixture.migratorPool.query<{ n: number }>('SELECT count(*)::int AS n FROM "twoFactor"');
-    const inUser = await fixture.migratorPool.query<{ n: number }>(
+    const secrets = await fixture.ownerPool.query<{ n: number }>('SELECT count(*)::int AS n FROM "twoFactor"');
+    const inUser = await fixture.ownerPool.query<{ n: number }>(
       'SELECT count(*)::int AS n FROM "user" WHERE "id" = $1 AND "twoFactorEnabled" = true',
       [userId],
     );

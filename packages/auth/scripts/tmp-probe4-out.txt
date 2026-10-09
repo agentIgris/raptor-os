@@ -1,0 +1,17 @@
+roles: OK
+apply mini schema as raptor_migrator: OK
+before session authorization: cu=postgres su=postgres super=true bypass=true
+after: cu=raptor_app su=raptor_app super=false bypass=false
+SET SESSION AUTHORIZATION raptor_app: OK
+  inside app: cu=raptor_app su=raptor_app super=false bypass=false
+SET ROLE raptor_app from ambient raptor_app: OK
+  owner seeded session rows: [{"n":1}]
+after owner write: cu=raptor_app su=raptor_app super=false bypass=false
+  user rows: [{"n":1}]
+  session rows: [{"n":0}]
+  session rows: [{"n":1}]
+app inserts session, no org: THREW new row violates row-level security policy for table "session"
+  INSERT SUCCEEDED with org ctx
+  by-token rows: [{"token":"tok-a"}]
+  session rows: [{"n":2}]
+  TRUNCATE SUCCEEDED (unexpected)

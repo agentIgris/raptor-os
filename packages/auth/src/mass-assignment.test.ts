@@ -42,7 +42,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await truncateAuthTables(fixture.migratorPool);
+  await truncateAuthTables(fixture);
 });
 
 /** POST a JSON body to an auth endpoint and return status and parsed body. */
@@ -71,7 +71,7 @@ async function post(
 
 /** Read the stored role for an account. */
 async function storedRole(email: string): Promise<string | null> {
-  const result = await fixture.migratorPool.query<{ role: string }>(
+  const result = await fixture.ownerPool.query<{ role: string }>(
     'SELECT "role" FROM "user" WHERE "email" = $1',
     [email],
   );
@@ -148,7 +148,7 @@ describe("a client cannot supply a role at sign-up", () => {
     // `twoFactorEnabled` is declared `input: false` by the two-factor plugin and
     // lands on its own default. Crucially it is NOT something the client can set
     // to skip enrolment.
-    const row = await fixture.migratorPool.query<{ role: string; twoFactorEnabled: boolean }>(
+    const row = await fixture.ownerPool.query<{ role: string; twoFactorEnabled: boolean }>(
       'SELECT "role", "twoFactorEnabled" FROM "user" WHERE "email" = $1',
       [email],
     );
@@ -162,7 +162,7 @@ describe("a client cannot supply a role at update", () => {
   it("rejects a profile update that carries a role", async () => {
     const email = "update-escalate@example.invalid";
     await post("/api/auth/sign-up/email", { name: "Updater", email, password: TEST_PASSWORD });
-    await fixture.migratorPool.query('UPDATE "user" SET "emailVerified" = true WHERE "email" = $1', [email]);
+    await fixture.ownerPool.query('UPDATE "user" SET "emailVerified" = true WHERE "email" = $1', [email]);
 
     // Sign in to obtain the session the update requires.
     const signIn = await fixture.auth.handler(
@@ -194,7 +194,7 @@ describe("a client cannot supply a role at update", () => {
   it("allows the same update once the role key is absent", async () => {
     const email = "update-clean@example.invalid";
     await post("/api/auth/sign-up/email", { name: "Clean", email, password: TEST_PASSWORD });
-    await fixture.migratorPool.query('UPDATE "user" SET "emailVerified" = true WHERE "email" = $1', [email]);
+    await fixture.ownerPool.query('UPDATE "user" SET "emailVerified" = true WHERE "email" = $1', [email]);
 
     const signIn = await fixture.auth.handler(
       new Request(`${BASE_URL}/api/auth/sign-in/email`, {
@@ -214,7 +214,7 @@ describe("a client cannot supply a role at update", () => {
     // Assert against the stored row rather than the response shape: the point is
     // that the write landed and the role did not move. This proves the rejection
     // above was about the role key specifically, not about updates being broken.
-    const stored = await fixture.migratorPool.query<{ name: string; role: string }>(
+    const stored = await fixture.ownerPool.query<{ name: string; role: string }>(
       'SELECT "name", "role" FROM "user" WHERE "email" = $1',
       [email],
     );
@@ -226,7 +226,7 @@ describe("a client cannot supply a role at update", () => {
   it("rejects the same escalation over the HTTP route a browser would use", async () => {
     const email = "http-escalate@example.invalid";
     await post("/api/auth/sign-up/email", { name: "Http", email, password: TEST_PASSWORD });
-    await fixture.migratorPool.query('UPDATE "user" SET "emailVerified" = true WHERE "email" = $1', [email]);
+    await fixture.ownerPool.query('UPDATE "user" SET "emailVerified" = true WHERE "email" = $1', [email]);
 
     const signIn = await fixture.auth.handler(
       new Request(`${BASE_URL}/api/auth/sign-in/email`, {
@@ -267,7 +267,7 @@ describe("the database is the backstop", () => {
     });
 
     await expect(
-      fixture.migratorPool.query(
+      fixture.ownerPool.query(
         'UPDATE "user" SET "role" = $2 WHERE "email" = $1',
         ["direct-escalate@example.invalid", "admin"],
       ),
@@ -280,8 +280,8 @@ describe("the database is the backstop", () => {
     const email = "promote-ok@example.invalid";
     await post("/api/auth/sign-up/email", { name: "Promote", email, password: TEST_PASSWORD });
 
-    await fixture.migratorPool.query('UPDATE "user" SET "twoFactorEnabled" = true WHERE "email" = $1', [email]);
-    await fixture.migratorPool.query('UPDATE "user" SET "role" = $2 WHERE "email" = $1', [email, "manager"]);
+    await fixture.ownerPool.query('UPDATE "user" SET "twoFactorEnabled" = true WHERE "email" = $1', [email]);
+    await fixture.ownerPool.query('UPDATE "user" SET "role" = $2 WHERE "email" = $1', [email, "manager"]);
 
     expect(await storedRole(email)).toBe("manager");
   });

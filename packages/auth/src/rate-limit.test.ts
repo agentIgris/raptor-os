@@ -42,7 +42,7 @@ beforeEach(async () => {
   // Truncating "rateLimit" resets the budget between tests. Without this the
   // suites would interfere through a shared table, which is exactly the coupling
   // the database storage choice is meant to have.
-  await truncateAuthTables(fixture.migratorPool);
+  await truncateAuthTables(fixture);
 });
 
 /** Create a verified, password-bearing account. */
@@ -56,7 +56,7 @@ async function createUser(email: string): Promise<void> {
   );
   expect([200, 422]).toContain(signUp.status);
 
-  await fixture.migratorPool.query('UPDATE "user" SET "emailVerified" = true WHERE "email" = $1', [email]);
+  await fixture.ownerPool.query('UPDATE "user" SET "emailVerified" = true WHERE "email" = $1', [email]);
 }
 
 /** Attempt a sign-in and return the status code. */
@@ -73,7 +73,7 @@ async function attemptSignIn(email: string): Promise<number> {
 
 /** Current persisted count for a given rate-limit key, or null when absent. */
 async function counterFor(path: string): Promise<number | null> {
-  const result = await fixture.migratorPool.query<{ count: number }>(
+  const result = await fixture.ownerPool.query<{ count: number }>(
     'SELECT "count" FROM "rateLimit" WHERE "key" LIKE $1',
     [`%|${path}`],
   );
@@ -116,7 +116,7 @@ describe("rate limiting on sign-in", () => {
     }
 
     // The key records the address the limit was consumed against.
-    const rows = await fixture.migratorPool.query<{ key: string }>(
+    const rows = await fixture.ownerPool.query<{ key: string }>(
       'SELECT "key" FROM "rateLimit" WHERE "key" LIKE $1',
       ["%|/sign-in/email"],
     );

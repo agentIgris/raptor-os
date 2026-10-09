@@ -1,0 +1,24 @@
+types: id=string:c65c4445-adf0-408e-8f5a-22404f73f45a, n=number:42, b=bigint:9007199254740993, t=object:Wed Jan 02 2030 08:34:05 GMT+0530 (India Standard Time), ts=object:Wed Jan 02 2030 03:04:05 GMT+0530 (India Standard Time), j=object:[object Object], arr=object:x,y, num=string:12.34, bool=boolean:true, nul=null
+raw keys: rows,fields,command,affectedRows,rowCount | c=number nwIsDate=true
+in-tx count: 2
+post-commit count: 2
+div0: code=22012
+post-abort threw: current transaction is aborted, commands ignored until end of transaction block
+post-rollback count: 2
+dup: code=23505 constraint=probe_pkey msg=duplicate key value violates unique constraint "probe_pkey"
+chk: code=23514
+DO: code=23514 msg=boom
+multi-statement exec ok
+returning id: {"id":"e05d3d1e-519b-4ee6-9b3a-f9e064869487"}
+select affectedRows=0 rowCount=1 fields=1
+delete affectedRows=1 rowCount=1 command=DELETE
+delete-none rows=0 affected=0
+set role: {"u":"probe_app","s":"postgres"}
+no ctx: []
+ctx A: [{"id":1}]
+after reset: {"u":"postgres"} ctx still={"v":"A"}
+owner sees: [{"id":1},{"id":2}]
+in tx as owner with FORCE: [{"id":1},{"id":2}]
+after commit GUC: {"v":"A"}
+pg_policies rows: [{"policyname":"p"}]
+explicit BEGIN/COMMIT in exec: ok

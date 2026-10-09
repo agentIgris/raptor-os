@@ -35,9 +35,16 @@ Prior webhook URLs, API keys and tokens are treated as compromised and are never
 | Tryout state machine (6 stages) | Best design work in the legacy codebase |
 | Attendance cutoff / auto-absent rules | Real operational knowledge, tested here instead of embedded in SQL triggers |
 | Slot-expense arithmetic | Deterministic and testable |
-| Tier pricing ladder (OCK / SSF / WWF) | A coherent commercial rate card |
+| Tier pricing ladder (`T4 → T3 → T2 → T1 → godtier`) | A coherent commercial rate card |
 | Discord message vocabulary | Users already recognise it |
 | Role hierarchy | A starting point, replaced by a real policy engine |
+
+> **Correction (2026-10-09).** This table originally read "Tier pricing ladder (OCK /
+> SSF / WWF)". Those three names appear nowhere in the legacy source — an exhaustive
+> search across all 22 branches returned zero matches. They survive only in the audit's
+> own prose, and this ADR propagated them into the rebuild plan. The ladder that is
+> actually implemented is `T4 → T3 → T2 → T1 → godtier` (`lib/team-logic.ts:43`), so that
+> is what is carried forward. See ADR-0016 for the full extraction.
 
 **Discarded entirely:** all 98 UI components, all 58 API route files, the 43 ad-hoc
 SQL scripts, the hand-written `Database` type, all module-level singletons, the

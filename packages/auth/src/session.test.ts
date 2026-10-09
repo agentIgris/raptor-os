@@ -51,7 +51,7 @@ async function ensureVerifiedUser(email: string): Promise<void> {
   );
   expect([200, 422]).toContain(signUp.status);
 
-  await fixture.migratorPool.query('UPDATE "user" SET "emailVerified" = true WHERE "email" = $1', [email]);
+  await fixture.ownerPool.query('UPDATE "user" SET "emailVerified" = true WHERE "email" = $1', [email]);
 }
 
 /** Create a verified user plus a live session, and return the replay cookie. */
@@ -77,7 +77,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await truncateAuthTables(fixture.migratorPool);
+  await truncateAuthTables(fixture);
 });
 
 describe("a live session", () => {
@@ -94,7 +94,7 @@ describe("a live session", () => {
 
     // The point of ADR-0007: sessions are database rows, so revocation is a
     // DELETE rather than a best-effort cache eviction.
-    const result = await fixture.migratorPool.query('SELECT count(*)::int AS n FROM "session"');
+    const result = await fixture.ownerPool.query('SELECT count(*)::int AS n FROM "session"');
     expect(result.rows[0]?.n).toBeGreaterThan(0);
   });
 });
@@ -111,7 +111,7 @@ describe("an expired session", () => {
     // back, because the schema asserts `expiresAt > createdAt`; leaving
     // `createdAt` in the present would violate that CHECK and the test would be
     // measuring the constraint rather than the expiry logic.
-    await fixture.migratorPool.query(
+    await fixture.ownerPool.query(
       'UPDATE "session" SET "expiresAt" = now() - interval \'1 hour\', "createdAt" = now() - interval \'25 hours\'',
     );
 
@@ -121,7 +121,7 @@ describe("an expired session", () => {
 
   it("is rejected for every role, so expiry is not conditional on privilege", async () => {
     const cookieHeader = await signedInCookieFor("expired-role@example.invalid");
-    await fixture.migratorPool.query(
+    await fixture.ownerPool.query(
       'UPDATE "session" SET "expiresAt" = now() - interval \'1 minute\', "createdAt" = now() - interval \'2 days\'',
     );
 
@@ -131,7 +131,7 @@ describe("an expired session", () => {
   it("leaves the account intact, so the user can sign in again", async () => {
     const email = "recoverable@example.invalid";
     await ensureVerifiedUser(email);
-    await fixture.migratorPool.query(
+    await fixture.ownerPool.query(
       'UPDATE "session" SET "expiresAt" = now() - interval \'1 hour\', "createdAt" = now() - interval \'25 hours\'',
     );
 
@@ -149,7 +149,7 @@ describe("a revoked session", () => {
     expect(await resolveSession(cookieHeader)).not.toBeNull();
 
     // Revocation is provable: the row is gone, so no cached copy can revive it.
-    await fixture.migratorPool.query('DELETE FROM "session"');
+    await fixture.ownerPool.query('DELETE FROM "session"');
 
     expect(await resolveSession(cookieHeader)).toBeNull();
   });
