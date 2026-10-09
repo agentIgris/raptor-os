@@ -55,6 +55,8 @@
  *     session read is ever streamed.
  */
 
+import { AsyncLocalStorage } from "node:async_hooks";
+
 import type { PGlite } from "@electric-sql/pglite";
 
 /** Commands Kysely turns into `numAffectedRows`. Everything else is a read. */
@@ -108,9 +110,36 @@ function toCommand(tag: string | undefined): QueryResultLike<unknown>["command"]
  * window is small and the failure would be invisible, which is the worst
  * combination available. Holding the lock for the whole triple closes it.
  *
- * It is deliberately NOT a transaction: the lock covers one top-level `query()`
- * call, so a statement another caller issues while a `BEGIN`/`COMMIT` pair is
- * open still lands inside that transaction. That is inherent to a one-session
+ * WHY IT IS REENTRANT
+ * -------------------
+ * A fixture opens a transaction, sets `app.org_id` transaction-locally, and then
+ * calls back into the pool:
+ *
+ *     lock.run(async () => {
+ *       await db.exec("BEGIN");
+ *       await db.query("SELECT set_config('app.org_id', $1, true)", [orgId]);
+ *       return await pool.query("SELECT ... FROM session");   // nested
+ *       // COMMIT
+ *     });
+ *
+ * With a plain promise chain the nested `pool.query` queues behind the very
+ * promise that is awaiting it, so it can never run: the outer call does not
+ * return until the inner one does, and the inner one does not start until the
+ * outer one does. Every test using this shape hangs until the hook timeout, and
+ * the assertions never get to run — which is why this was read as a test failure
+ * rather than as a harness bug.
+ *
+ * A boolean "am I inside run()" flag would fix the hang and silently destroy the
+ * guarantee above: a genuinely concurrent caller arriving while the flag is set
+ * would be admitted immediately and could land inside someone else's
+ * `SET ROLE` window. So ownership is tracked per async context with
+ * `AsyncLocalStorage` instead. A nested call in the SAME context runs inline — it
+ * already holds the session — while a DIFFERENT context still queues. That keeps
+ * the isolation property intact and makes the deadlock structurally impossible.
+ *
+ * It is deliberately NOT a transaction: the lock covers one top-level `run()`
+ * call, so a statement another caller issues while a `BEGIN`/`COMMIT` pair is open
+ * still lands inside that transaction. That is inherent to a one-session
  * database and is why the tests never interleave fixture writes with an
  * in-flight Better Auth call; the alternative — a real server with two
  * connections — is exactly what ADR-0015 recorded as unavailable here.
@@ -118,8 +147,24 @@ function toCommand(tag: string | undefined): QueryResultLike<unknown>["command"]
 export class SessionLock {
   #tail: Promise<void> = Promise.resolve();
 
+  /**
+   * Non-undefined in exactly the async contexts that currently hold this lock.
+   *
+   * A context is marked only for the duration of the `run()` that acquired it, and
+   * every continuation inside that work inherits the mark — which is what makes
+   * "issued from inside the transaction that issued it" detectable at all.
+   */
+  readonly #holding = new AsyncLocalStorage<true>();
+
   public run<T>(work: () => Promise<T>): Promise<T> {
-    const result = this.#tail.then(work, work);
+    // Already the owner in this async context: the session is ours for the whole
+    // call, so queueing would only make us wait on ourselves.
+    if (this.#holding.getStore() === true) return work();
+
+    const result = this.#tail.then(
+      () => this.#holding.run(true, work),
+      () => this.#holding.run(true, work),
+    );
     // Keep the chain alive even when `work` rejects, or every later caller
     // would inherit the rejection.
     this.#tail = result.then(
@@ -175,19 +220,22 @@ export function createPGlitePool(db: PGlite, options: { lock: SessionLock; role?
 
   return {
     // Acquiring needs no lock of its own: there is no handshake to interleave
-    // with, and `release()` is a no-op for the same reason.
-    connect: async (): Promise<PGlitePoolClient> => ({
-      query: <Row>(sql: string, parameters?: ReadonlyArray<unknown>) =>
-        options.lock.run(() => guarded<Row>(sql, parameters)),
-      // Nothing to release: there is no second connection to hand back. Kept
-      // because Kysely calls it on every error path, and an absent method there
-      // would turn a failed assertion into an unrelated crash.
-      release: (): void => undefined,
-    }),
+    // with, and `release()` is a no-op for the same reason. Written as an
+    // explicit resolved promise rather than an `async` arrow, because there is
+    // nothing to await and `require-await` is right to object.
+    connect: (): Promise<PGlitePoolClient> =>
+      Promise.resolve({
+        query: <Row>(sql: string, parameters?: ReadonlyArray<unknown>) =>
+          options.lock.run(() => guarded<Row>(sql, parameters)),
+        // Nothing to release: there is no second connection to hand back. Kept
+        // because Kysely calls it on every error path, and an absent method there
+        // would turn a failed assertion into an unrelated crash.
+        release: (): void => undefined,
+      }),
     query: <Row>(sql: string, parameters?: ReadonlyArray<unknown>) =>
       options.lock.run(() => guarded<Row>(sql, parameters)),
     // The instance is shared and outlives any single pool. Closing it is the
     // harness's job; doing it here would break the sibling pool.
-    end: async (): Promise<void> => undefined,
+    end: (): Promise<void> => Promise.resolve(),
   };
 }

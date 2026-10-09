@@ -101,16 +101,22 @@ ALTER TABLE "user"      ADD COLUMN IF NOT EXISTS "role"             text;
 -- -----------------------------------------------------------------------------
 -- session
 --
--- The ONLY Better Auth table that carries an org scope. A session is issued
--- inside one organisation's context; `orgId` records which.
+-- An IDENTITY table. `orgId` records the session's ACTIVE ORGANISATION, which is a
+-- value the server chooses and the application may act on — not a partition, and
+-- not a security boundary. See the RLS section below for why (ADR-0017).
 --
--- `orgId` is declared `input: false` in `config.ts`, so no client can set it, and
--- it is written server-side once the tenant is resolved from the session's user.
--- A NULL `orgId` means "not yet bound to a tenant".
+-- `orgId` is declared `input: false` in `config.ts`, so no client can set it and
+-- Better Auth never sends the key on create — a session starts with a NULL `orgId`.
+-- That is why the column could never satisfy the tenant policy's WITH CHECK, and
+-- why every sign-in failed with 42501. `auth_set_active_org` below is the only
+-- writer, and it requires an active `org_membership` row.
 --
--- A dedicated uuid index is added because the RLS policy filters on `orgId`, and
--- without it every tenant-scoped session read degrades to a sequential scan of
--- every session in the deployment.
+-- A NULL `orgId` means "no active organisation has been chosen yet", which is the
+-- normal state for a freshly signed-in session.
+--
+-- The index on `orgId` is retained because application code groups a user's
+-- sessions by active organisation. It is NOT there to support a policy: there is
+-- no longer one.
 -- -----------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS "session" (
@@ -311,145 +317,136 @@ CREATE TRIGGER user_mfa_guard_trigger
 -- =============================================================================
 -- ROW LEVEL SECURITY
 --
--- WHICH TABLES CARRY AN ORG SCOPE, AND WHY THE OTHERS ARE ONLY "ENABLED"
--- ---------------------------------------------------------------------
--- Exactly one of Better Auth's six tables is tenant-scoped: "session", via
--- "orgId". It is ENABLED and FORCED below.
---
+-- NO TABLE IN THIS FILE IS TENANT-SCOPED. ADR-0017.
+-- -----------------------------------------------
 -- "user", "account", "verification", "twoFactor" and "rateLimit" are identity,
 -- which is org-INDEPENDENT by design — the same decision `packages/db` already
 -- took for `person` and `identity`, because one human may work for several
 -- organisations. An `org_id` predicate on `user` would be meaningless rather
--- than merely redundant. They are therefore ENABLED with no policy, exactly as
--- `0001_tenancy.sql` does for `person`:
+-- than merely redundant.
 --
---     no policy => no rows for any role that has not been granted explicitly
+-- "session" was the lone exception and it was wrong, twice. It first carried
 --
--- and the grants at the foot of this file give `raptor_app` exactly the DML it
--- needs and nothing else.
+--     USING (current_org_id() IS NULL OR "orgId" IS NULL OR "orgId" = ...)
+--
+-- which failed OPEN: `current_org_id() IS NULL` is true for every request that has
+-- not yet resolved a tenant, so the OR short-circuited and every such request saw
+-- every session in the deployment, for every tenant, including the token and
+-- `userId` of every live credential. That is a cross-tenant credential-store
+-- exposure. Documenting it as "identity bootstrap" did not change what the
+-- database did, and a documented hole is still a hole.
+--
+-- Replacing it with the fail-closed form was no better, because it made sign-in
+-- impossible:
+--
+--     WITH CHECK (current_org_id() IS NOT NULL AND "orgId" = current_org_id()::text)
+--
+-- `orgId` is `input: false` in `config.ts`, so Better Auth inserts NULL, and
+-- `NULL = anything` is NULL rather than TRUE. Every session insert was refused:
+--
+--     code=42501  new row violates row-level security policy for table "session"
+--
+-- Both failures share one cause: treating "session" as the tenant-scoped record
+-- when it is the identity record that ESTABLISHES the tenant. The circle is
+-- unavoidable under that mistake — resolving the tenant needs the session, and
+-- reading the session needs the tenant. One direction fails open, the other
+-- fails closed.
+--
+-- So "session" is grouped with the other identity tables: no tenant predicate,
+-- and no RLS at all. It is identity for the same reason `0001_tenancy.sql` says
+-- `person` is.
+--
+-- WHAT IS GIVEN UP, STATED PLAINLY
+-- ---------------------------------
+-- A request can read a session row belonging to another tenant. That is accepted,
+-- and it is NOT claimed to be prevented. A session row holds a token and identity
+-- metadata, not business data. The business tables are forced-RLS-scoped in
+-- `packages/db`, and this package's suite asserts the fail-closed property THERE
+-- rather than asserting it here where it no longer holds.
+--
+-- WHAT CARRIES THE BOUNDARY INSTEAD
+-- ---------------------------------
+-- `session.orgId` survives with a narrower meaning: the ACTIVE organisation
+-- chosen for this session. It is a value, not a partition, and it is not a
+-- security boundary. Three controls carry the weight instead, each asserted by a
+-- test rather than by prose in this file:
+--
+--   1. `orgId` stays `input: false`, so a client can never assert its own tenant
+--      through Better Auth.
+--   2. `auth_set_active_org` below refuses to write an `orgId` unless an ACTIVE
+--      `org_membership` row proves the user belongs to that organisation.
+--   3. Authorisation is resolved against real `role_assignment` rows in
+--      `packages/db`, never from the token, so possessing a session carrying
+--      another organisation's `orgId` confers no permission.
 --
 -- A TABLE WITH RLS ENABLED AND NO POLICY IS NOT "PROTECTED BUT WORKING" — IT IS
 -- "PROTECTED AND UNUSABLE". Row Level Security is default-deny, so a non-owner
--- role sees zero rows no matter what it was granted. This is verified against the
--- real database rather than assumed: `SELECT count(*) FROM "user"` as `raptor_app`
--- returns 0 on a policy-less table, which in production would look like every
--- user's password being wrong. Hence the explicit `*_app_role_access` policies
--- below.
+-- role sees zero rows no matter what it has been granted. This is verified
+-- against the real database rather than assumed: `SELECT count(*) FROM "user"` as
+-- `raptor_app` returns 0 on a policy-less table, which in production would look
+-- like every user's password being wrong. Hence the explicit
+-- `*_app_role_access` policies below.
 --
--- THE POLICY ON "session": NO BOOTSTRAP BRANCH, IT FAILS CLOSED
--- ------------------------------------------------------------
--- FORCED, so the table OWNER is subject to the policy too. A policy that only
--- binds the application role is one `ALTER TABLE ... OWNER TO` away from being
--- decorative.
---
--- The predicate is a single conjunction with no escape hatch:
---
---     current_org_id() IS NOT NULL AND "orgId" = current_org_id()::text
---
--- and it says exactly one thing: you may see a session if, and only if, you
--- have already been resolved to the tenant that owns it.
---
--- WHY THERE IS NO `current_org_id() IS NULL` BRANCH
--- -----------------------------------------------
--- An earlier revision of this file read:
---
---     USING (current_org_id() IS NULL OR "orgId" IS NULL
---            OR "orgId" = current_org_id()::text)
---
--- and the middle argument for the first branch was "the application cannot know
--- which organisation the caller belongs to until it has read the session". That
--- argument describes a real ordering constraint and it is correct as a
--- description of the flow — but as a POLICY it inverts into the opposite of a
--- boundary. `current_org_id() IS NULL` is TRUE for every request that has not
--- yet resolved a tenant, so the OR short-circuits and every such request sees
--- every session in the deployment, for every tenant, including the token and
--- `userId` of every live credential. `"session"` is the credential store: that
--- is a cross-tenant credential-store exposure, not a bootstrap convenience.
--- Documenting it as "identity bootstrap" did not change what the database did,
--- and a documented hole is still a hole.
---
--- The ordering constraint is real and is now satisfied by a different
--- mechanism — one that does not hand out the whole table to resolve it. See
--- `auth_session_by_token` above: identity resolution reads AT MOST the single
--- row whose token the caller already holds, through a `SECURITY DEFINER`
--- function that is revoked from PUBLIC. Knowing which tenant a token belongs to
--- requires possessing that token; that is the whole of the bootstrap, and it
--- grants no access beyond the one bearer credential the caller already had.
---
--- `"orgId" IS NOT NULL` is likewise load-bearing and is not merely redundant:
--- `NULL = anything` is NULL, not TRUE, so a session not yet bound to a tenant
--- is invisible to EVERY request, including the one that created it. It is
--- reachable only through `auth_session_by_token`, which is exactly the narrow
--- path it needs.
---
--- THE CONSEQUENCE, STATED PLAINLY RATHER THAN BURIED
--- --------------------------------------------------
--- A request that has not yet called `auth_session_by_token` and set
--- `app.org_id` sees zero sessions. That is the intended direction of failure:
--- unavailable, not unrestricted. `session-isolation.test.ts` proves it against
--- the real database rather than asserting it.
+-- "session" is deliberately ABSENT from the ENABLE list at the foot of this
+-- section. Enabling RLS there would make the table default-deny for every role
+-- that is not the owner — the unusable state described above — while the
+-- `*_app_role_access` policy already grants `raptor_app` full DML, so the net
+-- effect for the only role that matters would be a second thing to get wrong.
 -- =============================================================================
 
-ALTER TABLE "session"  ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "session"  FORCE  ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS session_tenant_isolation ON "session";
-CREATE POLICY session_tenant_isolation ON "session"
-  USING (
-    current_org_id() IS NOT NULL
-    AND "orgId" = current_org_id()::text
-  )
-  WITH CHECK (
-    current_org_id() IS NOT NULL
-    AND "orgId" = current_org_id()::text
-  );
-
 -- -----------------------------------------------------------------------------
--- auth_session_by_token — THE ONLY WAY TO RESOLVE A SESSION BEFORE THE TENANT
--- IS KNOWN
+-- auth_session_by_token — IDENTITY RESOLUTION, NOT A TENANT BOUNDARY
 --
--- ADR-0011 rule 3: the tenant is resolved from the SESSION, never from a request
--- parameter, because otherwise the caller chooses which tenant they act in.
--- That produces an unavoidable ordering: to learn the tenant you must read the
--- session, and the session read cannot itself require a tenant.
+-- WHAT CHANGED IN ADR-0017, AND WHY THE FUNCTION IS STILL HERE
+-- -----------------------------------------------------------
+-- This function used to be described as "the only way to resolve a session before
+-- the tenant is known", and its SECURITY DEFINER elevation existed to see past
+-- `session_tenant_isolation`. That policy is gone, so the elevation has no RLS to
+-- see past.
 --
--- Previously that ordering was satisfied by a permissive branch in the policy,
--- which also handed every other session in the deployment to the same request.
--- This function replaces that with the narrowest elevation that actually works:
+-- It is KEPT because the operation is real and useful, not because it is a
+-- loophole: a bearer token is an OPAQUE STRING. To learn which user and which
+-- active organisation a token belongs to, something has to map that string back to
+-- a row, and doing it with a single indexed lookup on `token` is both cheaper and
+-- safer than letting application code SELECT the whole table and filter in
+-- JavaScript.
 --
---   * `SECURITY DEFINER` — it runs as the table owner, so it is not subject to
---     `session_tenant_isolation`. That is the entire point, and it is the only
---     reason it may be granted at all.
---
---   * `SET search_path = ''` — MANDATORY, per ADR-0006. A `SECURITY DEFINER`
---     function that resolves unqualified names lets any caller who can create an
---     object in a directory on the path shadow the tables the body refers to and
---     run the function's privileges against their own objects. Pinning the path
---     to empty means every name must be schema-qualified, which is why the body
---     says `public."session"` rather than `"session"`.
---
---   * NO `p_org_id` PARAMETER, deliberately. A signature of
---     `auth_session_by_token(p_token, p_org_id)` would let a caller name the
---     tenant it reads from, which is exactly the substitution ADR-0011 rule 3
---     forbids. The only input is the bearer token the caller already holds, and
---     the tenant comes out of the row the token selects.
+-- So it is now precisely what it always physically was — a single-row identity
+-- lookup — and this comment says so rather than implying a boundary it does not
+-- provide.
 --
 -- WHAT IT DOES AND DOES NOT GRANT
 -- -------------------------------
 -- It returns AT MOST ONE row, and only the one whose `token` equals the supplied
--- value. A caller that holds no token cannot name a session, so it reads nothing;
--- there is no branch that widens the result set. Identity resolution therefore
--- gains exactly the credential the caller already presented and nothing else.
+-- value. A caller holding no token cannot name a session, so it reads nothing;
+-- there is no branch that widens the result set.
 --
--- If `app.org_id` IS set, the row must belong to it — so a token minted in org A
--- is not resolvable from a connection resolved as org B, even by this function.
--- That keeps the elevation from becoming a cross-tenant read: it bypasses RLS
--- only for the caller's own tenant, never for another tenant's.
+-- It grants NO ACCESS TO ANY ORGANISATION. It is not an authorisation path, it
+-- carries no role, and the `orgId` it returns is a VALUE the caller may then
+-- validate, not a grant. Acting on that value means calling the forced-RLS
+-- business tables in `packages/db`, which enforce the tenant boundary
+-- independently of anything this function says. `session-isolation.test.ts`
+-- asserts exactly that — a session bearing another organisation's `orgId` confers
+-- nothing — because without the test this function is just a claim.
 --
--- EXECUTE is revoked from PUBLIC and granted to `raptor_app` alone. In
--- PostgreSQL a new function is EXECUTABLE by PUBLIC by default, so the REVOKE is
--- not optional bookkeeping: without it, any role — including an anonymous login
--- role — could read any session by token.
+-- `SECURITY DEFINER` is retained deliberately. The owner is the only role that
+-- could see a row whose tenant differs from the caller's, and pinning the search
+-- path keeps that elevation from being redirected at a shadowed object:
+--
+--   * `SET search_path = ''` — MANDATORY, per ADR-0006. A `SECURITY DEFINER`
+--     function resolving unqualified names lets any caller who can create an object
+--     in a directory on the path shadow the tables the body names and run the
+--     function's privileges against their own. Pinning the path to empty forces
+--     every name to be schema-qualified, hence `public."session"`.
+--
+--   * NO `p_org_id` PARAMETER, still. `auth_session_by_token(p_token, p_org_id)`
+--     would let a caller name the tenant it reads from, which is precisely the
+--     substitution ADR-0011 rule 3 forbids.
+--
+-- EXECUTE is revoked from PUBLIC and granted to `raptor_app` alone. PostgreSQL
+-- makes a new function EXECUTABLE by PUBLIC by default, so the REVOKE is not
+-- bookkeeping: without it any role, including an anonymous login role, could read
+-- any session by token.
 -- -----------------------------------------------------------------------------
 
 CREATE OR REPLACE FUNCTION auth_session_by_token(p_token text)
@@ -462,20 +459,87 @@ AS $$
   SELECT s.*
   FROM public."session" s
   WHERE s."token" = p_token
-    AND (
-      public.current_org_id() IS NULL
-      OR s."orgId" = public.current_org_id()::text
-    )
 $$;
 
 COMMENT ON FUNCTION auth_session_by_token(text) IS
-  'Security-definer single-row session lookup by token. Takes no org_id: the tenant comes from the row. EXECUTE is revoked from PUBLIC.';
+  'Identity resolution for a caller who already holds the token: at most one row, the one whose token was supplied. NOT an authorisation path and not a tenant boundary — the returned orgId is a value the caller must still validate. EXECUTE is revoked from PUBLIC.';
 
 REVOKE ALL ON FUNCTION auth_session_by_token(text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION auth_session_by_token(text) TO raptor_app;
 
--- Identity tables: org-independent, so there is no tenant predicate to enforce.
--- See the reasoning above and `0001_tenancy.sql`.
+-- -----------------------------------------------------------------------------
+-- auth_set_active_org — THE ONLY WAY TO WRITE session."orgId"
+--
+-- Compensating control 2 of ADR-0017. `orgId` is `input: false`, so Better Auth
+-- never sets it and a client cannot supply it; that alone would leave it NULL
+-- forever, which is correct but useless. This function is how a server picks the
+-- session's ACTIVE ORGANISATION, and it is the only door to that column.
+--
+-- WHY A FUNCTION AND NOT A TRIGGER
+-- ------------------------------
+-- A trigger would fire on every UPDATE and would have to guess the intended
+-- organisation from ambient state. This takes the organisation as an explicit
+-- argument, which means the check below is total: every write is either rejected
+-- or was preceded by a membership test. There is no path that sets the column
+-- without passing through the test.
+--
+-- `SECURITY DEFINER` + `SET search_path = ''` + schema-qualified names, per
+-- ADR-0006: this must read `org_membership`, which `raptor_app` cannot read
+-- directly (it is forced-RLS in `packages/db`), and the pinned empty search path is
+-- what stops that elevation being pointed at a substituted object.
+--
+-- It is deliberately NOT granted INSERT on the table: the app role still cannot
+-- write `orgId` itself, only this function can.
+-- -----------------------------------------------------------------------------
+
+CREATE OR REPLACE FUNCTION auth_set_active_org(p_token text, p_org_id uuid)
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  v_user_id uuid;
+BEGIN
+  -- Resolve the caller from the token they already hold, so the membership check
+  -- is about THAT user and cannot be aimed at someone else's.
+  SELECT s."userId"
+    INTO v_user_id
+    FROM public."session" s
+   WHERE s."token" = p_token;
+
+  IF v_user_id IS NULL THEN
+    RETURN false;
+  END IF;
+
+  -- The whole control. An ACTIVE membership is required: a pending invitation is
+  -- not membership, and a row whose status is anything else has been revoked.
+  IF NOT EXISTS (
+    SELECT 1
+      FROM public.org_membership m
+     WHERE m."userId" = v_user_id
+       AND m."org_id" = p_org_id
+       AND m."status" = 'active'
+  ) THEN
+    RETURN false;
+  END IF;
+
+  UPDATE public."session"
+     SET "orgId" = p_org_id::text
+   WHERE "token" = p_token;
+
+  RETURN true;
+END
+$$;
+
+COMMENT ON FUNCTION auth_set_active_org(text, uuid) IS
+  'Sets the session active organisation, but only where an active org_membership row proves the token holder belongs to it. Returns false and writes nothing otherwise.';
+
+REVOKE ALL ON FUNCTION auth_set_active_org(text, uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION auth_set_active_org(text, uuid) TO raptor_app;
+
+-- -----------------------------------------------------------------------------
+-- IDENTITY TABLES: PROTECTED BY ROLE, NOT BY TENANT
 --
 -- "account" AND "verification" NEED NO SPECIAL TREATMENT, and that is worth
 -- stating explicitly rather than leaving to inspection. The bootstrap defect was
@@ -487,7 +551,7 @@ GRANT EXECUTE ON FUNCTION auth_session_by_token(text) TO raptor_app;
 -- protection is the combination of the role predicate and the GRANTs at the foot
 -- of this file: a future role must clear both bars.
 --
--- THEY STILL NEED A POLICY, and this is worth stating because getting it wrong is
+-- THEY STILL NEED A POLICY, and that is worth stating because getting it wrong is
 -- silent. Row Level Security is DEFAULT-DENY: with RLS enabled and no policy, a
 -- non-owner role sees ZERO rows, no matter what it has been granted. So a
 -- policy-less table is not "protected but working", it is "protected and
@@ -498,16 +562,22 @@ GRANT EXECUTE ON FUNCTION auth_session_by_token(text) TO raptor_app;
 -- The predicate below therefore grants the application role what it needs and
 -- nobody else. Combined with the explicit GRANTs at the foot of this file, a
 -- future role must clear BOTH bars to touch identity data.
+--
+-- "session" is now in this list rather than under a tenant policy (ADR-0017).
+-- The predicate is the SAME role check as every other identity table, which is
+-- the point: it grants no organisation anything, and the tenant boundary is
+-- enforced by the forced-RLS business tables in `packages/db`.
 ALTER TABLE "user"        ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "account"     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "verification" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "twoFactor"   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "rateLimit"   ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "session"     ENABLE ROW LEVEL SECURITY;
 
 DO $$
 DECLARE
   t text;
-  identity_tables text[] := ARRAY['user','account','verification','twoFactor','rateLimit'];
+  identity_tables text[] := ARRAY['user','account','verification','twoFactor','rateLimit','session'];
 BEGIN
   FOREACH t IN ARRAY identity_tables LOOP
     EXECUTE format('DROP POLICY IF EXISTS %I ON %I', t || '_app_role_access', t);
@@ -547,6 +617,27 @@ GRANT USAGE ON SCHEMA public TO raptor_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON
   "user", "session", "account", "verification", "twoFactor", "rateLimit"
 TO raptor_app;
+
+-- The one column-level privilege in this file, and it closes a real hole.
+--
+-- The table-level UPDATE above is what Better Auth needs to refresh a session's
+-- expiry, and it necessarily includes "orgId". That means the application role
+-- could `UPDATE "session" SET "orgId" = <any org>` directly, completely bypassing
+-- the membership check in `auth_set_active_org` — leaving compensating control 2
+-- of ADR-0017 decorative for any caller with SQL access.
+--
+-- PostgreSQL has no "deny one column" grant, so the fix is to REVOKE the blanket
+-- UPDATE and re-grant it per column, omitting "orgId". A column-level grant then
+-- applies on its own, and "orgId" is writable only through the SECURITY DEFINER
+-- function, which refuses unless an active `org_membership` row proves the user
+-- belongs to that organisation.
+--
+-- INSERT is deliberately NOT restricted: Better Auth creates the session row, and
+-- it must be able to. It does not matter that INSERT could set "orgId", because
+-- `input: false` means Better Auth never sends that key, and the app role reaching
+-- a raw INSERT would still be unable to change an EXISTING session's orgId.
+REVOKE UPDATE ON "session" FROM raptor_app;
+GRANT UPDATE ("expiresAt", "updatedAt", "ipAddress", "userAgent") ON "session" TO raptor_app;
 
 -- No DELETE on "verification" for the app role beyond token consumption? Kept
 -- deliberately: the two-factor plugin deletes a consumed 2fa-* challenge through

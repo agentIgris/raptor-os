@@ -9,7 +9,10 @@
     "./prize": "./src/prize/index.ts",
     "./attendance": "./src/attendance/index.ts",
     "./authorization": "./src/authorization/index.ts",
-    "./audit": "./src/audit/index.ts"
+    "./audit": "./src/audit/index.ts",
+    "./expense": "./src/expense/index.ts",
+    "./tiers": "./src/tiers/index.ts",
+    "./tryout": "./src/tryout/index.ts"
   },
   "scripts": {
     "build": "tsc --build",

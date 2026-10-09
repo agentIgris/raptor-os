@@ -21,37 +21,28 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { Pool } from "pg";
 import { getCookies } from "better-auth/cookies";
 
-import { buildAuthOptions } from "./config.js";
-import { readAuthEnv } from "./env.js";
+import { optionsForEnv } from "./test-helpers.js";
 
 const SECRET = "cookie-test-signing-secret-0123456789abcdef";
 const BASE_URL = "http://localhost:3000";
 
 /**
- * Build options against a pool that is never connected.
+ * Build options against a database handle that is never connected.
  *
- * `buildAuthOptions` stores the pool and reads nothing from it, so these tests
- * assert real configuration shape without opening a socket. The pool is created
- * once and shared because constructing one is free and connecting is not.
+ * `buildAuthOptions` stores the handle and reads nothing from it, so these tests
+ * assert real configuration shape without starting a database. The handle
+ * rejects every query rather than opening one, so a future test that tried to
+ * run SQL through it would fail loudly instead of passing by accident.
  */
-const unconnectedPool = new Pool({
-  connectionString: "postgresql://raptor_app@127.0.0.1:5432/raptor_os_test",
-  max: 1,
-});
-
 function optionsFor(nodeEnv: string) {
-  return buildAuthOptions(
-    readAuthEnv({
-      BETTER_AUTH_SECRET: SECRET,
-      BETTER_AUTH_URL: nodeEnv === "production" ? "https://raptor.example" : BASE_URL,
-      DATABASE_URL: "postgresql://raptor_app@127.0.0.1:5432/raptor_os_test",
-      NODE_ENV: nodeEnv,
-    }),
-    unconnectedPool,
-  );
+  return optionsForEnv({
+    BETTER_AUTH_SECRET: SECRET,
+    BETTER_AUTH_URL: nodeEnv === "production" ? "https://raptor.example" : BASE_URL,
+    DATABASE_URL: "postgresql://raptor_app@raptor_os_test/raptor_os_test",
+    NODE_ENV: nodeEnv,
+  });
 }
 
 const COOKIE_NAMES = ["sessionToken", "sessionData", "dontRememberToken", "accountData"] as const;

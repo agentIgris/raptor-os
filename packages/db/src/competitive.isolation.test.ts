@@ -109,6 +109,27 @@ const SQLSTATE_UNIQUE_VIOLATION = "23505";
 const SQLSTATE_INSUFFICIENT_PRIVILEGE = "42501";
 
 /**
+ * SQLSTATE the capacity guard reports when a division cannot host a registration.
+ *
+ * Numerically identical to {@link SQLSTATE_FOREIGN_KEY_VIOLATION}, and named
+ * separately because the two are different guarantees that must be read apart:
+ * a composite FK failing means the row names another tenant's entity, whereas
+ * this code means "this division cannot hold one more entry". The guard reports
+ * the same code for both of its refusals on purpose — a division that does not
+ * exist and a division that is full are the same failure from the caller's side,
+ * which is that the referenced division cannot satisfy this reference.
+ *
+ * It is deliberately NOT `check_violation`. 23514 is what
+ * `competition_division_not_oversold_check` raises when the stored counter is
+ * corrupt, and roughly a dozen other CHECK constraints in this schema use it too.
+ * Reporting 23514 for a full division would make "you tried to sell past capacity"
+ * indistinguishable from "somebody corrupted a counter", and only one of those is a
+ * data-integrity fault worth waking someone for — the other is an ordinary business
+ * condition a caller turns into a 409.
+ */
+const SQLSTATE_DIVISION_FULL = "23503";
+
+/**
  * Runs `fn` expecting PostgreSQL to refuse it with a specific SQLSTATE.
  *
  * Asserting the SQLSTATE rather than the message matters here. Several guarantees in
@@ -237,6 +258,41 @@ describe("competitive schema — row level security", () => {
     const status = await migrationStatus(db);
     expect(status.applied).toContain("0002_competitive.sql");
     expect(status.pending).toHaveLength(0);
+  });
+
+  it("applies 0003_registration_place_invariant.sql, which corrects 0002", async () => {
+    // Asserted separately so the correction cannot quietly drop out of the
+    // migration set. 0002 is immutable once applied, so every fix to it lands in
+    // a later file, and nothing else in this suite would notice one going missing.
+    const status = await migrationStatus(db);
+    expect(status.applied).toContain("0003_registration_place_invariant.sql");
+  });
+
+  it("runs the isolation assertions as a role that CANNOT bypass RLS", async () => {
+    // Every other assertion in this file is made through `asApp`. If that role
+    // were a superuser, or held BYPASSRLS, the whole suite would pass while
+    // proving nothing — precisely the "isolation silently absent" outcome
+    // ADR-0006 was written to prevent. The role's attributes are asserted from
+    // the catalogue AND re-asserted live inside the role, because a property read
+    // from the catalogue and a property observed in the session can drift apart,
+    // and only the second one is the thing actually under test.
+    const rows = await ownerRows<{ rolsuper: boolean; rolbypassrls: boolean }>(
+      `SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname = 'raptor_app'`,
+    );
+
+    expect(rows, "the application role must exist").toHaveLength(1);
+    expect(rows[0]!.rolsuper, "a superuser bypasses every policy in this schema").toBe(false);
+    expect(rows[0]!.rolbypassrls, "BYPASSRLS switches the whole guarantee off").toBe(false);
+
+    await asApp(async () => {
+      const who = await db.query<{ current_user: string; bypasses_rls: boolean }>(
+        `SELECT current_user,
+                (SELECT rolsuper OR rolbypassrls FROM pg_roles WHERE rolname = current_user) AS bypasses_rls`,
+      );
+
+      expect(who.rows[0]!.current_user).toBe("raptor_app");
+      expect(who.rows[0]!.bypasses_rls).toBe(false);
+    }, ORG_A);
   });
 
   it("ENABLES and FORCES row level security on every new table", async () => {
@@ -715,13 +771,16 @@ describe("a division cannot be oversold", () => {
     expect(full[0]!.registered_count).toBe(2);
 
     await asApp(async () => {
-      await expect(
-        db.query("INSERT INTO registration (org_id, competition_division_id, team_id, status) VALUES ($1, $2, $3, 'confirmed')", [
-          ORG_A,
-          a.competitionDivisionId,
-          a.team3Id,
-        ]),
-      ).rejects.toThrow(/full/i);
+      await expectSqlstate(
+        () =>
+          db.query("INSERT INTO registration (org_id, competition_division_id, team_id, status) VALUES ($1, $2, $3, 'confirmed')", [
+            ORG_A,
+            a.competitionDivisionId,
+            a.team3Id,
+          ]),
+        SQLSTATE_DIVISION_FULL,
+        "registration past capacity",
+      );
     }, ORG_A);
 
     const after = await ownerRows<{ registered_count: number }>(
@@ -731,16 +790,259 @@ describe("a division cannot be oversold", () => {
     expect(after[0]!.registered_count).toBe(2);
   });
 
+  it("refuses the oversell from plain SQL with no application code in the path", async () => {
+    // The ceiling has to be a property of the DATABASE, not of a helper the
+    // application happens to call. Everything here runs as the schema owner —
+    // which bypasses RLS entirely and is not the application role — so the only
+    // thing that can refuse the third registration is the schema itself.
+    const a = await seedStack(ORG_A, "cccccccc", uuids("aaaaaaaa", "000000000001"), uuids("aaaaaaaa", "000000000002"));
+
+    await asOwner(`
+      INSERT INTO registration (org_id, competition_division_id, team_id, status)
+      VALUES
+        ('${ORG_A}', '${a.competitionDivisionId}', '${a.teamId}', 'confirmed'),
+        ('${ORG_A}', '${a.competitionDivisionId}', '${a.team2Id}', 'confirmed');
+    `);
+
+    await expectSqlstate(
+      () =>
+        asOwner(
+          `INSERT INTO registration (org_id, competition_division_id, team_id, status)
+           VALUES ('${ORG_A}', '${a.competitionDivisionId}', '${a.team3Id}', 'confirmed')`,
+        ),
+      SQLSTATE_DIVISION_FULL,
+      "plain SQL past capacity",
+    );
+
+    // Nothing was written: the refused statement left the division exactly as it
+    // found it rather than half-applying the increment.
+    const rows = await ownerRows<{ team_id: string }>(
+      "SELECT team_id FROM registration WHERE org_id = $1 AND competition_division_id = $2 ORDER BY team_id",
+      [ORG_A, a.competitionDivisionId],
+    );
+    expect(rows.map((r) => r.team_id)).toEqual([a.teamId, a.team2Id].sort());
+  });
+
+  it("gives the last remaining place to exactly one of two contenders", async () => {
+    // Two teams race for one place. The outcome a concurrent pair must converge
+    // to is exactly this: one row, one increment, one refusal.
+    //
+    // SCOPE, STATED PLAINLY: PGlite is ONE in-process session, so two
+    // statements cannot interleave inside the guard's read-then-increment window
+    // and a genuine concurrent race is not expressible here. This is the
+    // deterministic sequential form of the same guarantee, not a substitute for
+    // a concurrency test. The window is closed by the `FOR UPDATE` row lock the
+    // guard takes before reading the count (see 0003_registration_place_invariant.sql);
+    // proving that claim needs a real multi-connection server, which ADR-0015
+    // records as unavailable on this machine.
+    const a = await seedStack(ORG_A, "cccccccc", uuids("aaaaaaaa", "000000000001"), uuids("aaaaaaaa", "000000000002"));
+
+    await asOwner(
+      `UPDATE competition_division SET capacity = 1 WHERE org_id = '${ORG_A}' AND id = '${a.competitionDivisionId}'`,
+    );
+
+    // Contender one.
+    await asOwner(
+      `INSERT INTO registration (org_id, competition_division_id, team_id, status)
+       VALUES ('${ORG_A}', '${a.competitionDivisionId}', '${a.teamId}', 'confirmed')`,
+    );
+
+    // Contender two, immediately after, against the same division row.
+    await expectSqlstate(
+      () =>
+        asOwner(
+          `INSERT INTO registration (org_id, competition_division_id, team_id, status)
+           VALUES ('${ORG_A}', '${a.competitionDivisionId}', '${a.team2Id}', 'confirmed')`,
+        ),
+      SQLSTATE_DIVISION_FULL,
+      "second contender for the last place",
+    );
+
+    const rows = await ownerRows<{ team_id: string; registered_count: number; capacity: number }>(
+      `SELECT r.team_id, cd.registered_count, cd.capacity
+         FROM registration r
+         JOIN competition_division cd
+           ON cd.org_id = r.org_id AND cd.id = r.competition_division_id
+        WHERE r.org_id = $1 AND r.competition_division_id = $2`,
+      [ORG_A, a.competitionDivisionId],
+    );
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.team_id).toBe(a.teamId);
+    expect(rows[0]!.registered_count).toBe(1);
+    expect(rows[0]!.registered_count).toBeLessThanOrEqual(rows[0]!.capacity);
+  });
+
+  it("refuses to re-confirm a withdrawn entry once the division has filled again", async () => {
+    // The legacy defect restated in new tables. Releasing a place on withdrawal
+    // and NOT retaking it on re-confirmation means three confirmed entries can
+    // sit in a division of capacity two while the counter still reads two. The
+    // counter is right and the division is oversold, which is worse than a wrong
+    // counter because nothing in the schema contradicts it.
+    const a = await seedStack(ORG_A, "cccccccc", uuids("aaaaaaaa", "000000000001"), uuids("aaaaaaaa", "000000000002"));
+
+    await asOwner(`
+      INSERT INTO registration (org_id, competition_division_id, team_id, status)
+      VALUES
+        ('${ORG_A}', '${a.competitionDivisionId}', '${a.teamId}', 'confirmed'),
+        ('${ORG_A}', '${a.competitionDivisionId}', '${a.team2Id}', 'confirmed');
+    `);
+
+    // Withdraw one, giving its place back.
+    await asOwner(
+      `UPDATE registration SET status = 'withdrawn', withdrawn_at = now()
+        WHERE org_id = '${ORG_A}' AND team_id = '${a.teamId}'`,
+    );
+
+    // The freed place is genuinely sold to somebody else.
+    await asOwner(
+      `INSERT INTO registration (org_id, competition_division_id, team_id, status)
+       VALUES ('${ORG_A}', '${a.competitionDivisionId}', '${a.team3Id}', 'confirmed')`,
+    );
+
+    // Now the original team wants back in. There is no place, so the database
+    // must refuse it.
+    await expectSqlstate(
+      () =>
+        asOwner(
+          `UPDATE registration SET status = 'confirmed', withdrawn_at = NULL
+            WHERE org_id = '${ORG_A}' AND team_id = '${a.teamId}'`,
+        ),
+      SQLSTATE_DIVISION_FULL,
+      "re-confirming an entry past capacity",
+    );
+
+    const state = await ownerRows<{ team_id: string; status: string }>(
+      "SELECT team_id, status FROM registration WHERE org_id = $1 AND competition_division_id = $2 ORDER BY team_id",
+      [ORG_A, a.competitionDivisionId],
+    );
+
+    expect(state).toHaveLength(3);
+    expect(state.filter((r) => r.status === "confirmed")).toHaveLength(2);
+  });
+
+  it("does not sell a place to an entry that was never given one", async () => {
+    // `registered_count` means "teams holding a place". A waitlisted or withdrawn
+    // entry holds none, so counting it makes the division report itself full
+    // while it has room — the same class of defect as overselling, and the reason
+    // the placeholder now derives from the status rather than from the INSERT.
+    const a = await seedStack(ORG_A, "cccccccc", uuids("aaaaaaaa", "000000000001"), uuids("aaaaaaaa", "000000000002"));
+
+    await asOwner(
+      `UPDATE competition_division SET capacity = 1 WHERE org_id = '${ORG_A}' AND id = '${a.competitionDivisionId}'`,
+    );
+
+    await asOwner(
+      `INSERT INTO registration (org_id, competition_division_id, team_id, status)
+       VALUES ('${ORG_A}', '${a.competitionDivisionId}', '${a.teamId}', 'waitlisted')`,
+    );
+
+    const waiting = await ownerRows<{ registered_count: number }>(
+      "SELECT registered_count FROM competition_division WHERE id = $1",
+      [a.competitionDivisionId],
+    );
+    expect(waiting[0]!.registered_count).toBe(0);
+
+    // The single real place is still available.
+    await asOwner(
+      `INSERT INTO registration (org_id, competition_division_id, team_id, status)
+       VALUES ('${ORG_A}', '${a.competitionDivisionId}', '${a.team2Id}', 'confirmed')`,
+    );
+
+    // And promoting the waitlisted entry is what must now be refused.
+    await expectSqlstate(
+      () =>
+        asOwner(
+          `UPDATE registration SET status = 'confirmed'
+            WHERE org_id = '${ORG_A}' AND team_id = '${a.teamId}'`,
+        ),
+      SQLSTATE_DIVISION_FULL,
+      "promoting a waitlisted entry past capacity",
+    );
+
+    const final = await ownerRows<{ registered_count: number; capacity: number }>(
+      "SELECT registered_count, capacity FROM competition_division WHERE id = $1",
+      [a.competitionDivisionId],
+    );
+    expect(final[0]!.registered_count).toBe(1);
+    expect(final[0]!.registered_count).toBeLessThanOrEqual(final[0]!.capacity);
+  });
+
+  it("does not let any role reach the counter's internals except by registering", async () => {
+    // PostgreSQL grants EXECUTE on a new function to PUBLIC. Left alone, that hands
+    // every role — including the application role and any future one — a direct way to
+    // move registered_count without registering anybody, which is the same class of
+    // defect as letting the app raise `capacity`. 0002 granted EXECUTE on its capacity
+    // functions to raptor_app outright; the guard is reachable only by writing a
+    // registration, and this asserts that.
+    const rows = await ownerRows<{ proname: string; public_may_execute: boolean }>(
+      `SELECT p.proname,
+              -- aclitem is a base type, not a composite, so its grantee cannot be read with
+              -- field notation; aclexplode is the supported way to decompose an ACL.
+              -- Grantee 0 is the pseudo-role PUBLIC. A NULL proacl means the default
+              -- ACL is still in force, which also grants PUBLIC, so the NULL case
+              -- counts as "may execute".
+              COALESCE(p.proacl IS NULL OR EXISTS (
+                SELECT 1 FROM aclexplode(p.proacl) AS e(grantor, grantee, privilege_type, is_grantable)
+                 WHERE e.grantee = 0 AND e.privilege_type = 'EXECUTE'
+              ), false) AS public_may_execute
+         FROM pg_proc p
+         JOIN pg_namespace n ON n.oid = p.pronamespace
+        WHERE n.nspname = 'public'
+          AND p.proname IN ('registration_holds_place', 'take_competition_division_place',
+                            'give_back_competition_division_place', 'sync_competition_division_place')
+        ORDER BY p.proname`,
+    );
+
+    expect(rows.map((r) => r.proname)).toEqual([
+      "give_back_competition_division_place",
+      "registration_holds_place",
+      "sync_competition_division_place",
+      "take_competition_division_place",
+    ]);
+    for (const row of rows) {
+      expect(row.public_may_execute, `${row.proname} must not be executable by PUBLIC`).toBe(false);
+    }
+
+    // And the live refusal, from the role that actually runs in production. If this
+    // ever succeeds, the application can move the counter without an entry behind it.
+    const a = await seedStack(ORG_A, "cccccccc", uuids("aaaaaaaa", "000000000001"), uuids("aaaaaaaa", "000000000002"));
+
+    await asApp(async () => {
+      await expect(
+        db.query("SELECT public.take_competition_division_place($1, $2)", [ORG_A, a.competitionDivisionId]),
+      ).rejects.toThrow();
+
+      await expect(
+        db.query("SELECT public.give_back_competition_division_place($1, $2)", [ORG_A, a.competitionDivisionId]),
+      ).rejects.toThrow();
+    }, ORG_A);
+
+    // Neither attempt moved the counter, which is the property that actually matters:
+    // a refused call must not leave a partial effect behind.
+    const after = await ownerRows<{ registered_count: number }>(
+      "SELECT registered_count FROM competition_division WHERE org_id = $1 AND id = $2",
+      [ORG_A, a.competitionDivisionId],
+    );
+    expect(after[0]!.registered_count).toBe(0);
+  });
+
   it("rejects the oversell even when the counter is written directly", async () => {
     const a = await seedStack(ORG_A, "cccccccc", uuids("aaaaaaaa", "000000000001"), uuids("aaaaaaaa", "000000000002"));
 
     // The CHECK, not the trigger. Even bypassing the trigger, a state with more
-    // registered teams than places is not storable.
-    await expect(
-      asOwner(
-        "UPDATE competition_division SET registered_count = 3 WHERE id = 'cccccccc-0000-0000-0000-00000000000a'",
-      ),
-    ).rejects.toThrow(/check/i);
+    // registered teams than places is not storable. The SQLSTATE is asserted, and
+    // it is deliberately the SAME code the guard uses for nothing: 23514 here
+    // means the stored counter was corrupted, which is a different fault from a
+    // refused registration and must stay distinguishable from it.
+    await expectSqlstate(
+      () =>
+        asOwner(
+          "UPDATE competition_division SET registered_count = 3 WHERE id = 'cccccccc-0000-0000-0000-00000000000a'",
+        ),
+      SQLSTATE_CHECK_VIOLATION,
+      "direct overshoot of registered_count",
+    );
     expect(a.competitionDivisionId).toBeDefined();
   });
 
@@ -804,13 +1106,24 @@ describe("a division cannot be oversold", () => {
 
     // A role that can raise capacity can also oversell one with a single statement, so
     // the counter is owned by the trigger and the app role never gets UPDATE here.
+    // The SQLSTATE is asserted rather than the message, so a refusal by some other
+    // mechanism — a column-level grant gap, say — could not stand in for the
+    // privilege decision this test claims to prove.
     await asApp(async () => {
-      await expect(
-        db.query("UPDATE competition_division SET capacity = 999 WHERE id = $1", [
+      await expectSqlstate(
+        () => db.query("UPDATE competition_division SET capacity = 999 WHERE id = $1", [
           "cccccccc-0000-0000-0000-00000000000a",
         ]),
-      ).rejects.toThrow(/permission denied/i);
+        SQLSTATE_INSUFFICIENT_PRIVILEGE,
+        "raising capacity as the application role",
+      );
     }, ORG_A);
+
+    // Refused, not clamped: the stored capacity is what it was seeded at.
+    const rows = await ownerRows<{ capacity: number }>(
+      "SELECT capacity FROM competition_division WHERE id = 'cccccccc-0000-0000-0000-00000000000a'",
+    );
+    expect(rows[0]!.capacity).toBe(2);
   });
 });
 
@@ -823,12 +1136,15 @@ describe("roster integrity", () => {
     const a = await seedStack(ORG_A, "cccccccc", uuids("aaaaaaaa", "000000000001"), uuids("aaaaaaaa", "000000000002"));
     // The fixture already holds one current membership for person1 on teamId.
 
-    await expect(
-      asOwner(
-        `INSERT INTO team_membership (id, org_id, team_id, person_id, role_in_team, share_percent, valid_from)
-         VALUES ('cccccccc-0000-0000-0000-0000000000c1', '${ORG_A}', '${a.teamId}', '${a.person1}', 'player', 40, now())`,
-      ),
-    ).rejects.toThrow(/unique|duplicate/i);
+    await expectSqlstate(
+      () =>
+        asOwner(
+          `INSERT INTO team_membership (id, org_id, team_id, person_id, role_in_team, share_percent, valid_from)
+           VALUES ('cccccccc-0000-0000-0000-0000000000c1', '${ORG_A}', '${a.teamId}', '${a.person1}', 'player', 40, now())`,
+        ),
+      SQLSTATE_UNIQUE_VIOLATION,
+      "second current membership",
+    );
 
     // A second, different person is fine — the index is per person, not per team.
     await asOwner(
@@ -915,22 +1231,28 @@ describe("results carry provenance", () => {
 
     // Manual but claiming less than full confidence is a contradiction: either a
     // person asserted it, or a machine guessed. The schema refuses the middle.
-    await expect(
-      asOwner(
-        `INSERT INTO match_result (id, org_id, match_id, team_id, outcome, source, confidence)
-         VALUES ('cccccccc-0000-0000-0000-0000000000e3', '${ORG_A}', 'cccccccc-0000-0000-0000-0000000000e1', '${a.teamId}',
-                 'loss', 'manual', 0.5)`,
-      ),
-    ).rejects.toThrow(/check/i);
+    await expectSqlstate(
+      () =>
+        asOwner(
+          `INSERT INTO match_result (id, org_id, match_id, team_id, outcome, source, confidence)
+           VALUES ('cccccccc-0000-0000-0000-0000000000e3', '${ORG_A}', 'cccccccc-0000-0000-0000-0000000000e1', '${a.teamId}',
+                   'loss', 'manual', 0.5)`,
+        ),
+      SQLSTATE_CHECK_VIOLATION,
+      "manual result with machine confidence",
+    );
 
     // Confidence outside 0..1 is rejected outright.
-    await expect(
-      asOwner(
-        `INSERT INTO match_result (id, org_id, match_id, team_id, outcome, source, confidence)
-         VALUES ('cccccccc-0000-0000-0000-0000000000e4', '${ORG_A}', 'cccccccc-0000-0000-0000-0000000000e1', '${a.teamId}',
-                 'loss', 'ocr', 1.5)`,
-      ),
-    ).rejects.toThrow(/check/i);
+    await expectSqlstate(
+      () =>
+        asOwner(
+          `INSERT INTO match_result (id, org_id, match_id, team_id, outcome, source, confidence)
+           VALUES ('cccccccc-0000-0000-0000-0000000000e4', '${ORG_A}', 'cccccccc-0000-0000-0000-0000000000e1', '${a.teamId}',
+                   'loss', 'ocr', 1.5)`,
+        ),
+      SQLSTATE_CHECK_VIOLATION,
+      "confidence above 1",
+    );
 
     const stored = await ownerRows<{ source: string; confidence: string }>(
       "SELECT source, confidence::text FROM match_result WHERE id = 'cccccccc-0000-0000-0000-0000000000e2'",
@@ -952,13 +1274,16 @@ describe("results carry provenance", () => {
                'win', 'manual', 1)`,
     );
 
-    await expect(
-      asOwner(
-        `INSERT INTO match_result (id, org_id, match_id, team_id, outcome, source, confidence)
-         VALUES ('cccccccc-0000-0000-0000-0000000000f3', '${ORG_A}', 'cccccccc-0000-0000-0000-0000000000f1', '${a.teamId}',
-                 'loss', 'manual', 1)`,
-      ),
-    ).rejects.toThrow(/unique|duplicate/i);
+    await expectSqlstate(
+      () =>
+        asOwner(
+          `INSERT INTO match_result (id, org_id, match_id, team_id, outcome, source, confidence)
+           VALUES ('cccccccc-0000-0000-0000-0000000000f3', '${ORG_A}', 'cccccccc-0000-0000-0000-0000000000f1', '${a.teamId}',
+                   'loss', 'manual', 1)`,
+        ),
+      SQLSTATE_UNIQUE_VIOLATION,
+      "second result for one match",
+    );
   });
 });
 
@@ -966,12 +1291,15 @@ describe("prize pool arithmetic", () => {
   it("refuses a net that is not gross minus deductions", async () => {
     const a = await seedStack(ORG_A, "cccccccc", uuids("aaaaaaaa", "000000000001"), uuids("aaaaaaaa", "000000000002"));
 
-    await expect(
-      asOwner(
-        `INSERT INTO prize_pool (org_id, competition_division_id, gross, deductions, net, tax_withheld, currency)
-         VALUES ('${ORG_A}', '${a.competitionDivisionId}', 1000.0000, 100.0000, 950.0000, 0, 'INR')`,
-      ),
-    ).rejects.toThrow(/check/i);
+    await expectSqlstate(
+      () =>
+        asOwner(
+          `INSERT INTO prize_pool (org_id, competition_division_id, gross, deductions, net, tax_withheld, currency)
+           VALUES ('${ORG_A}', '${a.competitionDivisionId}', 1000.0000, 100.0000, 950.0000, 0, 'INR')`,
+        ),
+      SQLSTATE_CHECK_VIOLATION,
+      "net inconsistent with gross - deductions",
+    );
 
     await asOwner(
       `INSERT INTO prize_pool (org_id, competition_division_id, gross, deductions, net, tax_withheld, currency)
@@ -1027,17 +1355,20 @@ describe("attendance integrity", () => {
 
     // The legacy schema had no attendance entity at all, so a re-scan created a second
     // row and every count was inflated. Here the second row cannot be written.
-    await expect(
-      asOwner(
-        `INSERT INTO attendance_record (org_id, session_id, person_id, status, method)
-         VALUES ('${ORG_A}', 'cccccccc-0000-0000-0000-0000000000a1', '${a.person1}', 'present', 'coach_marked')`,
-      ),
-    ).rejects.toThrow(/unique|duplicate/i);
+    await expectSqlstate(
+      () =>
+        asOwner(
+          `INSERT INTO attendance_record (org_id, session_id, person_id, status, method)
+           VALUES ('${ORG_A}', 'cccccccc-0000-0000-0000-0000000000a1', '${a.person1}', 'present', 'coach_marked')`,
+        ),
+      SQLSTATE_UNIQUE_VIOLATION,
+      "duplicate attendance",
+    );
 
     // A different person at the same session is unaffected.
     await asOwner(
-      `INSERT INTO attendance_record (org_id, session_id, person_id, status, method)
-       VALUES ('${ORG_A}', 'cccccccc-0000-0000-0000-0000000000a1', '${a.person2}', 'late', 'self_reported')`,
+      `INSERT INTO attendance_record (org_id, session_id, person_id, status, method, minutes_late)
+       VALUES ('${ORG_A}', 'cccccccc-0000-0000-0000-0000000000a1', '${a.person2}', 'late', 'self_reported', 7)`,
     );
 
     const count = await ownerRows<{ n: number }>(
@@ -1055,30 +1386,46 @@ describe("attendance integrity", () => {
        VALUES ('cccccccc-0000-0000-0000-0000000000b2', '${ORG_A}', '${a.teamId}', 'practice', 'Block', now(), now() + interval '3 hours')`,
     );
 
-    await expect(
-      asOwner(
-        `INSERT INTO attendance_record (org_id, session_id, person_id, status, method, minutes_late)
-         VALUES ('${ORG_A}', 'cccccccc-0000-0000-0000-0000000000b2', '${a.person1}', 'absent', 'coach_marked', 12)`,
-      ),
-    ).rejects.toThrow(/check/i);
+    await expectSqlstate(
+      () =>
+        asOwner(
+          `INSERT INTO attendance_record (org_id, session_id, person_id, status, method, minutes_late)
+           VALUES ('${ORG_A}', 'cccccccc-0000-0000-0000-0000000000b2', '${a.person1}', 'absent', 'coach_marked', 12)`,
+        ),
+      SQLSTATE_CHECK_VIOLATION,
+      "absent with minutes_late",
+    );
 
-    await expect(
-      asOwner(
-        `INSERT INTO attendance_record (org_id, session_id, person_id, status, method)
-         VALUES ('${ORG_A}', 'cccccccc-0000-0000-0000-0000000000b2', '${a.person2}', 'late', 'self_reported')`,
-      ),
-    ).rejects.toThrow(/check/i);
+    // The converse: 'late' with no figure says someone was late but not by how much,
+    // which is the row an attendance report cannot reconcile.
+    await expectSqlstate(
+      () =>
+        asOwner(
+          `INSERT INTO attendance_record (org_id, session_id, person_id, status, method)
+           VALUES ('${ORG_A}', 'cccccccc-0000-0000-0000-0000000000b2', '${a.person2}', 'late', 'self_reported')`,
+        ),
+      SQLSTATE_CHECK_VIOLATION,
+      "late without minutes_late",
+    );
+
+    await asOwner(
+      `INSERT INTO attendance_record (org_id, session_id, person_id, status, method, minutes_late)
+       VALUES ('${ORG_A}', 'cccccccc-0000-0000-0000-0000000000b2', '${a.person2}', 'late', 'self_reported', 12)`,
+    );
   });
 
   it("refuses an attendance policy whose cutoff runs forwards", async () => {
     const a = await seedStack(ORG_A, "cccccccc", uuids("aaaaaaaa", "000000000001"), uuids("aaaaaaaa", "000000000002"));
 
-    await expect(
-      asOwner(
-        `INSERT INTO attendance_policy (org_id, team_id, name, cutoff_offset_minutes, grace_minutes)
-         VALUES ('${ORG_A}', '${a.teamId}', 'Strict', 15, 5)`,
-      ),
-    ).rejects.toThrow(/check/i);
+    await expectSqlstate(
+      () =>
+        asOwner(
+          `INSERT INTO attendance_policy (org_id, team_id, name, cutoff_offset_minutes, grace_minutes)
+           VALUES ('${ORG_A}', '${a.teamId}', 'Strict', 15, 5)`,
+        ),
+      SQLSTATE_CHECK_VIOLATION,
+      "cutoff running forwards",
+    );
 
     await asOwner(
       `INSERT INTO attendance_policy (org_id, team_id, name, cutoff_offset_minutes, grace_minutes, holiday_scope)

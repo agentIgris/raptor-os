@@ -1,5 +1,6 @@
 /**
- * Session lifecycle tests, against the real local PostgreSQL 18.6.
+ * Session lifecycle tests, against an in-process PGlite instance (PostgreSQL
+ * 18.3 in WebAssembly).
  *
  * PROVES, rather than asserts by inspection:
  *   - a session within its lifetime IS accepted (the control works);
@@ -94,7 +95,7 @@ describe("a live session", () => {
 
     // The point of ADR-0007: sessions are database rows, so revocation is a
     // DELETE rather than a best-effort cache eviction.
-    const result = await fixture.ownerPool.query('SELECT count(*)::int AS n FROM "session"');
+    const result = await fixture.ownerPool.query<{ n: number }>('SELECT count(*)::int AS n FROM "session"');
     expect(result.rows[0]?.n).toBeGreaterThan(0);
   });
 });

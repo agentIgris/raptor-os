@@ -1,0 +1,23 @@
+{
+  // The capability probe is a standalone script, not part of the published package.
+  //
+  // It exists because ADR-0015 requires the claim "PGlite can enforce what the tenancy
+  // design depends on" to name the trial that supports it, and that trial is this file.
+  // It is therefore worth type-checking like anything else — but it must not join the
+  // package's own project, because `tsconfig.json` sets `rootDir: "./src"` and a file
+  // outside that root would fail the build.
+  //
+  // eslint's flat config resolves each file to a tsconfig through the TypeScript
+  // project service, so without a project here `pnpm lint` reports a parsing error for
+  // this script and the package's `ci` script cannot pass.
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": false,
+    "declaration": false,
+    "declarationMap": false,
+    "noEmit": true,
+    "types": ["node"]
+  },
+  "include": ["./**/*.ts"],
+  "exclude": ["node_modules"]
+}

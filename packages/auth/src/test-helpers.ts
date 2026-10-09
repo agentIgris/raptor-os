@@ -260,6 +260,6 @@ function createUnconnectedPool(): PGlitePool {
   return {
     connect: () => Promise.reject(new Error(message)),
     query: () => Promise.reject(new Error(message)),
-    end: async (): Promise<void> => undefined,
+    end: (): Promise<void> => Promise.resolve(),
   };
 }

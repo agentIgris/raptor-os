@@ -230,14 +230,31 @@ function mfaGuardCreatesPrivilegedUser(incoming: Record<string, unknown>): boole
 /**
  * The database handle Better Auth will accept.
  *
- * Typed as whatever `better-auth@1.7.7` itself declares rather than as
- * `pg.Pool`, because the adapter duck-types its driver: anything exposing
- * `connect()` is built into a Kysely `PostgresDialect`. Production still passes
- * a real `pg.Pool` from {@link createPool}; the type is widened so the test
- * harness can hand Better Auth the PGlite session without a cast, and without a
- * `pg` dependency in the assertion path.
+ * Better Auth's own `BetterAuthOptions` is a recursive type — its `database`
+ * field is inferred from the plugins and options that reference it back — so
+ * `BetterAuthOptions["database"]` collapses to an *error type* under the
+ * linter rather than to a usable one. Asserting on it therefore produced
+ * `no-unsafe-assignment` at the single place the handle is handed over, which
+ * was a true report about a real defect rather than noise.
+ *
+ * So the contract is stated structurally instead, from what the adapter
+ * actually requires: a Kysely-compatible dialect exposing `connect()`, `query()`
+ * and `end()`. Production supplies a real `pg.Pool`; tests supply the PGlite
+ * session. Neither is named here, which is the point — ADR-0008 requires the
+ * local and the managed implementation to satisfy one interface, so that
+ * nothing above it knows which is active.
  */
-export type AuthDatabase = NonNullable<BetterAuthOptions["database"]>;
+export interface AuthDatabase {
+  connect(): Promise<AuthDatabaseClient>;
+  query<Row>(sql: string, parameters?: ReadonlyArray<unknown>): Promise<{ rows: Row[] }>;
+  end(): Promise<void>;
+}
+
+/** The per-connection handle that `connect()` resolves to. */
+export interface AuthDatabaseClient {
+  query<Row>(sql: string, parameters?: ReadonlyArray<unknown>): Promise<{ rows: Row[] }>;
+  release(): void;
+}
 
 export function buildAuthOptions(env: AuthEnv, database: AuthDatabase): BetterAuthOptions {
   const isProduction = env.nodeEnv === "production";
@@ -428,17 +445,31 @@ export function buildAuthOptions(env: AuthEnv, database: AuthDatabase): BetterAu
       cookieCache: { enabled: false },
       additionalFields: {
         /**
-         * The organisation a session is bound to.
+         * The session's ACTIVE ORGANISATION (ADR-0017).
          *
-         * `input: false` means no client can set it — Better Auth replaces it
-         * with the default (absent) on create and rejects the key on update.
+         * `input: false` means Better Auth rejects the key on both create and
+         * update: no client can assert its own tenant through the API, and
+         * Better Auth never sends the field on insert. That is a real control and
+         * it is asserted in `auth-tenancy.test.ts`.
          *
-         * This column is what makes `"session"` the one Better Auth table that
-         * carries an org scope, and therefore the one table where Row Level
-         * Security has a tenant predicate to enforce (see `schema.sql`). Better
-         * Auth's other five tables are identity, which is org-independent by
-         * design — a human may work for several organisations — so an `org_id`
-         * predicate on `user` would be meaningless rather than merely redundant.
+         * It is worth being precise about what it does and does not do, because an
+         * earlier comment here claimed Better Auth "replaces it with the default
+         * (absent) on create". There is no default set anywhere in this package,
+         * and nothing wrote this column server-side — so every session row was
+         * created with a NULL `orgId`. That NULL was why the session RLS policy's
+         * `WITH CHECK` rejected every sign-in with SQLSTATE 42501. The comment was
+         * describing an implementation that did not exist, and believing it is what
+         * kept the defect in place.
+         *
+         * The column is now written by exactly one function, `auth_set_active_org`,
+         * which refuses unless an active `org_membership` row proves the token
+         * holder belongs to that organisation. The app role cannot write it at all:
+         * the table-level UPDATE is revoked and re-granted per column, omitting
+         * `orgId`.
+         *
+         * So: the value is server-chosen, membership-gated, and not a security
+         * boundary. Tenant isolation lives on the business tables in
+         * `packages/db`, enforced by forced RLS and the policy engine.
          */
         orgId: {
           type: "string",

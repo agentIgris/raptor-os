@@ -5,3 +5,16 @@ allowBuilds:
   esbuild: true
 minimumReleaseAgeExclude:
   - drizzle-orm@0.45.4
+overrides:
+  # drizzle-kit pulls @esbuild-kit/core-utils, which pins esbuild 0.18.20 and is
+  # flagged for GHSA-67mh-4wv8-2f99 (any website may query the esbuild dev
+  # server and read its response). It reaches the tree only because
+  # drizzle-kit is a peerDependency of better-auth.
+  #
+  # The advisory is scoped to the dev server and is not reachable from the
+  # deployed product, so this override is scoped to that one transitive parent
+  # rather than applied globally: forcing esbuild across drizzle-kit's own tree
+  # risks an API mismatch for no security gain. If drizzle-kit later ships a
+  # fixed @esbuild-kit/core-utils, this override should be deleted rather than
+  # left to mask the upgrade.
+  "@esbuild-kit/core-utils>esbuild": "0.25.12"

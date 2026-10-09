@@ -13,7 +13,10 @@
  * diverge. `roles.ts` and `schema.sql` must agree exactly.
  *
  * These tests read the LIVE database rather than the `.sql` file, so a table
- * applied with the wrong constraint, or not applied at all, fails here.
+ * applied with the wrong constraint, or not applied at all, fails here. The
+ * database is an in-process PGlite session (PostgreSQL 18.3 in WebAssembly);
+ * native PostgreSQL cannot start a backend on this machine — see
+ * `docs/adr/0015-pglite-restored-after-native-postgres-retest.md`.
  */
 
 import { readFile } from "node:fs/promises";
@@ -296,7 +299,14 @@ describe("schema.sql is idempotent", () => {
   });
 
   it("drops a policy before recreating it", () => {
-    expect(schemaSql).toMatch(/DROP POLICY IF EXISTS session_tenant_isolation/);
+    // The property is idempotency, not the existence of any one policy: CREATE
+    // POLICY has no IF NOT EXISTS, so an unguarded second application fails with
+    // 42710. `session_tenant_isolation` was the example before ADR-0017 removed
+    // the tenant policy; the guards now live in the loop that creates every
+    // `*_app_role_access` policy, which includes `session`. Asserting the loop
+    // keeps the guarantee without pinning the test to a policy ADR-0017 deleted.
+    expect(schemaSql).toMatch(/DROP POLICY IF EXISTS %I ON %I/);
+    expect(schemaSql).toMatch(/'user','account','verification','twoFactor','rateLimit','session'/);
   });
 
   it("replaces functions rather than failing on an existing one", () => {

@@ -1,5 +1,6 @@
 /**
- * MFA enforcement tests, against the real local PostgreSQL 18.6.
+ * MFA enforcement tests, against an in-process PGlite instance (PostgreSQL 18.3
+ * in WebAssembly).
  *
  * THE GAP THIS CLOSES
  * -------------------

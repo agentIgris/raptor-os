@@ -121,6 +121,15 @@ export interface AuthTestDatabase {
   /** Run `work` with the owner role assumed, and give it back in a `finally`. */
   asOwnerRole<T>(work: () => Promise<T>): Promise<T>;
   /**
+   * Run `work` with `raptor_app` NOT a member of `raptor_migrator`.
+   *
+   * Mirrors production, where the application role holds no membership of the
+   * owner. Needed to assert anything the owner would otherwise grant by
+   * inheritance — a column-level REVOKE in particular, which cannot be
+   * demonstrated while the membership stands.
+   */
+  withoutOwnerMembership<T>(work: () => Promise<T>): Promise<T>;
+  /**
    * Drop any assumed role and clear the tenant GUC.
    *
    * Idempotent, and safe to call when nothing is assumed. Called from every
@@ -194,6 +203,54 @@ export async function createTestDatabase(): Promise<AuthTestDatabase> {
   // `env.ts` refuses to hand `raptor_migrator` to an application process.
   await db.exec(`GRANT ${OWNER_ROLE} TO ${APP_ROLE}`);
 
+  // The membership must be revocable later, and the session identity by then is
+  // `raptor_app` (see `SET SESSION AUTHORIZATION` below), which cannot revoke a
+  // membership it was granted without ADMIN OPTION. So the grant carries the
+  // option from the start.
+  //
+  // Harness plumbing only; it never reaches a deployment. It also does NOT weaken
+  // any assertion: a member still inherits the owner's privileges, which is
+  // exactly why {@link withoutOwnerMembership} exists.
+  await db.exec(`GRANT ${OWNER_ROLE} TO ${APP_ROLE} WITH ADMIN OPTION`);
+
+  // That membership has a consequence worth stating, because it changes what the
+  // app role can be shown to do.
+  //
+  // In PostgreSQL a role inherits the privileges of every role it is a member of,
+  // so while `raptor_app` is a member of `raptor_migrator` it holds the OWNER's
+  // privileges — including any the owner holds and `raptor_app` was explicitly
+  // denied. A column-level `REVOKE ... FROM raptor_app` cannot be demonstrated
+  // while that membership stands: the inherited grant simply wins.
+  //
+  // Production has no such membership (`env.ts` refuses to hand the migration role
+  // to an application process), so the restriction DOES hold there. To prove it
+  // rather than assume it, {@link withoutOwnerMembership} drops the membership for
+  // the duration of one check and restores it afterwards.
+  // `SET SESSION AUTHORIZATION` below makes `session_user` the app role, and that
+  // switch is one-way. Capture the bootstrap identity NOW, while it still exists,
+  // so role DDL can be re-entered later: after the switch, `raptor_app` is not a
+  // superuser and PGlite refuses `REVOKE` for it even with ADMIN OPTION held.
+  const bootstrapSuperuser = await readBootstrapIdentity(db);
+
+  const withoutOwnerMembership = async <T>(work: () => Promise<T>): Promise<T> => {
+    await db.exec(`SET SESSION AUTHORIZATION ${bootstrapSuperuser}`);
+    try {
+      await db.exec(`REVOKE ${OWNER_ROLE} FROM ${APP_ROLE}`);
+    } finally {
+      await db.exec(`SET SESSION AUTHORIZATION ${APP_ROLE}`);
+    }
+    try {
+      return await work();
+    } finally {
+      await db.exec(`SET SESSION AUTHORIZATION ${bootstrapSuperuser}`);
+      try {
+        await db.exec(`GRANT ${OWNER_ROLE} TO ${APP_ROLE} WITH ADMIN OPTION`);
+      } finally {
+        await db.exec(`SET SESSION AUTHORIZATION ${APP_ROLE}`);
+      }
+    }
+  };
+
   const schemaSql = await readFile(SCHEMA_PATH, "utf8");
   await db.exec("SET ROLE " + OWNER_ROLE);
   try {
@@ -226,6 +283,7 @@ export async function createTestDatabase(): Promise<AuthTestDatabase> {
     ownerPool,
     asAppRole: (work) => asRole(APP_ROLE, work),
     asOwnerRole: (work) => asRole(OWNER_ROLE, work),
+    withoutOwnerMembership,
     resetRoles: async () => {
       await lock.run(async () => {
         await db.exec("RESET ROLE");
@@ -239,6 +297,21 @@ export async function createTestDatabase(): Promise<AuthTestDatabase> {
       await db.close();
     },
   };
+}
+
+/**
+ * The session's identity before `SET SESSION AUTHORIZATION` replaces it.
+ *
+ * Read from the server rather than hardcoded, because PGlite's bootstrap role name
+ * is an implementation detail that should not leak into assertions. Needed because
+ * `SET SESSION AUTHORIZATION` is one-way, so role DDL performed afterwards has no
+ * privileged identity left to run as.
+ */
+async function readBootstrapIdentity(db: PGlite): Promise<string> {
+  const result = await db.query<{ session_user: string }>("SELECT session_user");
+  const identity = result.rows[0]?.session_user;
+  if (identity === undefined) throw new Error("readBootstrapIdentity: no session_user returned");
+  return identity;
 }
 
 /**
