@@ -1367,7 +1367,7 @@ describe("attendance integrity", () => {
 
     // A different person at the same session is unaffected.
     await asOwner(
-      `INSERT INTO attendance_record (org_id, session_id, person_id, status, method, minutes_late)
+      `INSERT INTO attendance_record (org_id, session_id, person_id, status, method, late_minutes)
        VALUES ('${ORG_A}', 'cccccccc-0000-0000-0000-0000000000a1', '${a.person2}', 'late', 'self_reported', 7)`,
     );
 
@@ -1378,7 +1378,7 @@ describe("attendance integrity", () => {
     expect(count[0]!.n).toBe(2);
   });
 
-  it("refuses minutes_late on a row that is not late", async () => {
+  it("refuses late_minutes on a row that is not late", async () => {
     const a = await seedStack(ORG_A, "cccccccc", uuids("aaaaaaaa", "000000000001"), uuids("aaaaaaaa", "000000000002"));
 
     await asOwner(
@@ -1389,11 +1389,11 @@ describe("attendance integrity", () => {
     await expectSqlstate(
       () =>
         asOwner(
-          `INSERT INTO attendance_record (org_id, session_id, person_id, status, method, minutes_late)
+          `INSERT INTO attendance_record (org_id, session_id, person_id, status, method, late_minutes)
            VALUES ('${ORG_A}', 'cccccccc-0000-0000-0000-0000000000b2', '${a.person1}', 'absent', 'coach_marked', 12)`,
         ),
       SQLSTATE_CHECK_VIOLATION,
-      "absent with minutes_late",
+      "absent with late_minutes",
     );
 
     // The converse: 'late' with no figure says someone was late but not by how much,
@@ -1405,11 +1405,11 @@ describe("attendance integrity", () => {
            VALUES ('${ORG_A}', 'cccccccc-0000-0000-0000-0000000000b2', '${a.person2}', 'late', 'self_reported')`,
         ),
       SQLSTATE_CHECK_VIOLATION,
-      "late without minutes_late",
+      "late without late_minutes",
     );
 
     await asOwner(
-      `INSERT INTO attendance_record (org_id, session_id, person_id, status, method, minutes_late)
+      `INSERT INTO attendance_record (org_id, session_id, person_id, status, method, late_minutes)
        VALUES ('${ORG_A}', 'cccccccc-0000-0000-0000-0000000000b2', '${a.person2}', 'late', 'self_reported', 12)`,
     );
   });

@@ -11,6 +11,8 @@
     "./authorization": "./src/authorization/index.ts",
     "./audit": "./src/audit/index.ts",
     "./expense": "./src/expense/index.ts",
+    "./ledger": "./src/ledger/index.ts",
+    "./reconciliation": "./src/reconciliation/index.ts",
     "./tiers": "./src/tiers/index.ts",
     "./tryout": "./src/tryout/index.ts"
   },

@@ -26,6 +26,7 @@ import { createHash } from "node:crypto";
 
 import {
   allocateByShareNumerators,
+  minorToDecimal,
   money,
   parsePercent,
   zero,
@@ -485,11 +486,15 @@ function formatMoney(value: Money): string {
   return value.toDecimal();
 }
 
-/** Render a raw minor-unit bigint as a decimal string. */
+/**
+ * Render a raw minor-unit bigint as a decimal string.
+ *
+ * Delegates to the canonical renderer in `money/`: this module, the surplus
+ * split and `Money.toDecimal` all need this, and a private copy here was the
+ * reason a negative amount could render two different ways in two modules.
+ */
 function formatMinor(minor: bigint): string {
-  const negative = minor < 0n;
-  const digits = (negative ? -minor : minor).toString().padStart(5, "0");
-  return `${negative ? "-" : ""}${digits.slice(0, -4)}.${digits.slice(-4)}`;
+  return minorToDecimal(minor);
 }
 
 export type { CurrencyCode };

@@ -1,7 +1,10 @@
 export {
   MONEY_FACTOR,
+  MONEY_MAX_MINOR,
+  MONEY_MIN_MINOR,
   MONEY_SCALE,
   assertSameCurrency,
+  minorToDecimal,
   money,
   parsePercent,
   sumMoney,

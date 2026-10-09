@@ -1,9 +1,74 @@
 import { describe, expect, it } from "vitest";
 
-import { allocateByLargestRemainder, allocateByShareNumerators, money, parsePercent, sumMoney, zero } from "./index.js";
+import {
+  MONEY_MAX_MINOR,
+  MONEY_MIN_MINOR,
+  allocateByLargestRemainder,
+  allocateByShareNumerators,
+  minorToDecimal,
+  money,
+  parsePercent,
+  sumMoney,
+  zero,
+} from "./index.js";
 
 const INR = "INR";
 const USD = "USD";
+
+describe("numeric(18,4) range", () => {
+  it("accepts the largest amount Postgres numeric(18,4) can hold", () => {
+    // 18 significant digits, 4 of them after the point: 99999999999999.9999.
+    expect(money("99999999999999.9999", INR).minor).toBe(MONEY_MAX_MINOR);
+    expect(MONEY_MAX_MINOR).toBe(999_999_999_999_999_999n);
+  });
+
+  it("accepts the most negative amount numeric(18,4) can hold", () => {
+    expect(money("-99999999999999.9999", INR).minor).toBe(MONEY_MIN_MINOR);
+  });
+
+  it("rejects an amount that would overflow the column", () => {
+    // Without this guard the value reaches Postgres as a silently rounded value,
+    // or fails at INSERT time, long after the arithmetic that produced it.
+    expect(() => money("100000000000000.0000", INR)).toThrow(/numeric\(18,4\)|range/i);
+    expect(() => money("-100000000000000.0000", INR)).toThrow(/numeric\(18,4\)|range/i);
+  });
+
+  it("rejects arithmetic that overflows the column rather than wrapping", () => {
+    expect(() => money("99999999999999.9999", INR).add(money("0.0001", INR))).toThrow(/numeric\(18,4\)|range/i);
+  });
+});
+
+describe("minorToDecimal", () => {
+  it("renders minor units as a fixed four-decimal string", () => {
+    expect(minorToDecimal(10_000_001n)).toBe("1000.0001");
+    expect(minorToDecimal(0n)).toBe("0.0000");
+    expect(minorToDecimal(1n)).toBe("0.0001");
+  });
+
+  it("renders negative minor units", () => {
+    expect(minorToDecimal(-1_2345n)).toBe("-1.2345");
+    expect(minorToDecimal(-1n)).toBe("-0.0001");
+  });
+
+  it("renders the maximum magnitude without losing a digit", () => {
+    expect(minorToDecimal(MONEY_MAX_MINOR)).toBe("99999999999999.9999");
+  });
+
+  it("agrees with Money.toDecimal for every case the fuzz suite can reach", () => {
+    let seed = 20260301n;
+    const next = () => {
+      seed = (seed * 6364136223846793005n + 1442695040888963407n) & ((1n << 64n) - 1n);
+      return seed >> 20n;
+    };
+
+    for (let trial = 0; trial < 300; trial++) {
+      const major = next() % 1_000_000n;
+      const frac = next() % 10_000n;
+      const minor = major * 10_000n + frac;
+      expect(minorToDecimal(minor)).toBe(money(`${major}.${String(frac).padStart(4, "0")}`, INR).toDecimal());
+    }
+  });
+});
 
 describe("money arithmetic", () => {
   it("adds amounts", () => {

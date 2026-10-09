@@ -26,6 +26,7 @@ adding a new ADR that supersedes the old one — records are never edited or del
 | [0016](0016-domain-rules-recovered-from-legacy-source.md) | Domain rules recovered from source; withdraws the OCK/SSF/WWF ladder | Accepted |
 | [0017](0017-session-is-identity-not-tenant-scoped.md) | session is identity, not tenant-scoped; removes a policy that blocked sign-in | Accepted |
 | [0018](0018-person-is-identity-root.md) | `person` is the identity root; links to Better Auth's `user` | Accepted |
+| [0019](0019-performance-metrics-designed-not-recovered.md) | Performance metrics designed, not recovered; completes Phase 2 | Accepted |
 
 ## Status vocabulary
 

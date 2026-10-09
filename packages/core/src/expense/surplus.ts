@@ -46,7 +46,7 @@
  */
 
 import type { Money } from "../money/index.js";
-import { money, parsePercent, zero } from "../money/index.js";
+import { minorToDecimal, money, parsePercent, zero } from "../money/index.js";
 
 /**
  * Tournament winnings must be strictly greater than this to trigger the 50/50
@@ -206,9 +206,7 @@ function buildExplanation(args: {
 }
 
 function formatMinor(minor: bigint): string {
-  const negative = minor < 0n;
-  const digits = (negative ? -minor : minor).toString().padStart(5, "0");
-  return `${negative ? "-" : ""}${digits.slice(0, -4)}.${digits.slice(-4)}`;
+  return minorToDecimal(minor);
 }
 
 function format(value: Money): string {

@@ -17,6 +17,21 @@ export const MONEY_SCALE = 4;
 /** Multiplier from a major-unit amount to minor units. */
 export const MONEY_FACTOR = 10n ** BigInt(MONEY_SCALE);
 
+/**
+ * Largest amount Postgres `numeric(18,4)` can hold, in minor units.
+ *
+ * 18 significant digits with 4 after the point is 14 before it, so the maximum
+ * is `99999999999999.9999`. The domain enforces the column's range rather than
+ * discovering it at `INSERT` time: an amount that quietly exceeds the column is
+ * either rounded by the driver or rejected by the database, long after the
+ * arithmetic that produced it and long after anyone could trace it back to the
+ * rule that caused it.
+ */
+export const MONEY_MAX_MINOR = 999_999_999_999_999_999n;
+
+/** Most negative amount `numeric(18,4)` can hold. Symmetric with {@link MONEY_MAX_MINOR}. */
+export const MONEY_MIN_MINOR = -999_999_999_999_999_999n;
+
 /** An ISO 4217 alphabetic currency code, e.g. `INR`, `USD`, `EUR`. */
 export type CurrencyCode = string;
 
@@ -81,6 +96,7 @@ export function money(amount: string | number | bigint, currency: CurrencyCode):
 }
 
 function make(minor: bigint, currency: CurrencyCode): Money {
+  assertInRange(minor, currency);
   const self: Money = {
     minor,
     currency,
@@ -117,17 +133,44 @@ function make(minor: bigint, currency: CurrencyCode): Money {
       return self.minor === 0n;
     },
     toDecimal(): string {
-      const negative = self.minor < 0n;
-      const digits = (negative ? -self.minor : self.minor).toString().padStart(MONEY_SCALE + 1, "0");
-      const whole = digits.slice(0, -MONEY_SCALE);
-      const fraction = digits.slice(-MONEY_SCALE);
-      return `${negative ? "-" : ""}${whole}.${fraction}`;
+      return minorToDecimal(self.minor);
     },
     toString(): string {
       return `${self.toDecimal()} ${self.currency}`;
     },
   };
   return Object.freeze(self);
+}
+
+/**
+ * Every {@link Money} is constructed through `make`, so this is the one place
+ * the column range is enforced — including on the *result* of arithmetic. A sum
+ * that overflows is a value the ledger cannot persist, and finding out at
+ * `INSERT` time loses the stack that produced it.
+ */
+function assertInRange(minor: bigint, currency: CurrencyCode): void {
+  if (minor > MONEY_MAX_MINOR || minor < MONEY_MIN_MINOR) {
+    throw new Error(
+      `Amount ${minor} minor units is outside the numeric(18,4) range [${MONEY_MIN_MINOR}, ${MONEY_MAX_MINOR}] for ${currency}`,
+    );
+  }
+}
+
+/**
+ * Render raw minor units as a fixed four-decimal string.
+ *
+ * Exported because three modules need it: `Money.toDecimal`, the allocation
+ * engine and the surplus split each carried a private copy. A canonical
+ * renderer matters more than duplication saves here — if one copy disagreed
+ * about a negative amount, two modules would print two different numbers for
+ * the same money, and neither would be obviously wrong.
+ */
+export function minorToDecimal(minor: bigint): string {
+  const negative = minor < 0n;
+  const digits = (negative ? -minor : minor).toString().padStart(MONEY_SCALE + 1, "0");
+  const whole = digits.slice(0, -MONEY_SCALE);
+  const fraction = digits.slice(-MONEY_SCALE);
+  return `${negative ? "-" : ""}${whole}.${fraction}`;
 }
 
 /** Zero in the given currency. */
