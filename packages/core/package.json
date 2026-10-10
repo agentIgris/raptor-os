@@ -10,8 +10,12 @@
     "./attendance": "./src/attendance/index.ts",
     "./authorization": "./src/authorization/index.ts",
     "./audit": "./src/audit/index.ts",
+    "./contracts": "./src/contracts/index.ts",
+    "./documents": "./src/documents/index.ts",
+    "./employment": "./src/employment/index.ts",
     "./expense": "./src/expense/index.ts",
     "./ledger": "./src/ledger/index.ts",
+    "./minors": "./src/minors/index.ts",
     "./reconciliation": "./src/reconciliation/index.ts",
     "./tiers": "./src/tiers/index.ts",
     "./tryout": "./src/tryout/index.ts"
