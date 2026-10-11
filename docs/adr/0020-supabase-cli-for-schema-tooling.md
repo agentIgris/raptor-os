@@ -54,11 +54,29 @@ Neither is installed. `winget install Docker.DockerDesktop` was attempted and re
 elevation this session does not have; `Get-WindowsOptionalFeature` for Hyper-V likewise
 returns `The requested operation requires elevation`.
 
+**Update (2026-10-11):** Docker Desktop 4.94.0 installed successfully via winget (the
+installer elevation was approved), but the engine never starts: the Desktop processes launch
+and exit silently with no log output. Root cause is the missing WSL2 backend — `wsl --list`
+reports WSL is not installed at all — and `wsl --install` plus enabling the
+`VirtualMachinePlatform` feature both require elevation. An explicit UAC request
+(`Start-Process -Verb RunAs`) was declined. So Docker is present but inert: no daemon, no
+`docker` server, `supabase start` still fails at container health inspection.
+
+Two ways forward, neither available from inside this session:
+
+1. **Approve one UAC prompt for WSL2.** Run `wsl --install` from an elevated PowerShell
+   (right-click → Run as administrator), reboot if asked, then relaunch Docker Desktop and
+   run `supabase start`. This keeps everything local, which is what ADR-0008 originally
+   wanted.
+2. **Link a Supabase Cloud project instead.** `supabase link` needs no Docker and no
+   elevation — it only needs a project ref and an access token from supabase.com (free tier
+   suffices). Then `supabase db push` applies the generated baseline, and browser auth runs
+   against the hosted Auth server. Trade-off: the database leaves the machine, so the
+   "complete entire project locally" constraint is relaxed for the backend runtime while the
+   schema, tests and tooling stay local.
+
 **This supersedes the "no Docker" rule in ADR-0008.** That rule was a genuine constraint and is
-being relaxed by decision, not by drift: the reference stack is the supported way to run
-Supabase's Auth, PostgREST and Studio locally, and reimplementing three of them in Node would
-be a worse answer than requiring a container runtime. The rest of ADR-0008 is unaffected —
-storage, mail and the queue remain Node-native substitutes behind one interface.
+being relaxed by decision, not by drift.
 
 ## What works today, without Docker
 
