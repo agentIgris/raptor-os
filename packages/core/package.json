@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./analytics": "./src/analytics/index.ts",
     "./money": "./src/money/index.ts",
     "./prize": "./src/prize/index.ts",
     "./attendance": "./src/attendance/index.ts",
@@ -15,6 +16,8 @@
     "./documents": "./src/documents/index.ts",
     "./employment": "./src/employment/index.ts",
     "./expense": "./src/expense/index.ts",
+    "./fx": "./src/fx/index.ts",
+    "./i18n": "./src/i18n/index.ts",
     "./inventory": "./src/inventory/index.ts",
     "./invoicing": "./src/invoicing/index.ts",
     "./ledger": "./src/ledger/index.ts",
@@ -22,8 +25,10 @@
     "./obligations": "./src/obligations/index.ts",
     "./partners": "./src/partners/index.ts",
     "./reconciliation": "./src/reconciliation/index.ts",
+    "./tasks": "./src/tasks/index.ts",
     "./tiers": "./src/tiers/index.ts",
-    "./tryout": "./src/tryout/index.ts"
+    "./tryout": "./src/tryout/index.ts",
+    "./workflows": "./src/workflows/index.ts"
   },
   "scripts": {
     "build": "tsc --build",

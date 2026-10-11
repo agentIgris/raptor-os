@@ -1,0 +1,344 @@
+/* ==========================================================================
+   Raptor OS design tokens — the single source of truth for the visual layer.
+
+   WHY THIS FILE IS THE SOURCE OF TRUTH
+   ------------------------------------
+   Tailwind v4 is CSS-first: there is no `tailwind.config.js` to hold a second
+   copy of these values. That removes a class of drift, but only if nothing else
+   re-introduces one. So this file is the ONLY place a colour, size or duration
+   is written down, and `src/tokens.ts` holds a machine-readable mirror of it
+   that exists purely so `tokens.test.ts` can compute contrast ratios. That test
+   parses this file and fails if the mirror drifts. The mirror is not a second
+   source of truth; it is a checked projection of the first.
+
+   RATIONALE for every token is in ../DESIGN.md. Values here are the decision;
+   the reasons are there.
+
+   LAYER ORDER
+   -----------
+   1. Primitives are NOT exposed. There is no `--blue-500` in this file. A
+      primitive palette is the thing that lets a design system decay into
+      forty near-identical blues, so every token below is named for what it
+      MEANS (`--danger-base`, never `--red-500`) and swapping a whole theme
+      becomes a single-file edit.
+   2. Each token declares a light value in `:root` and a dark value in the two
+      dark selectors below. The dark block is written twice — once behind
+      `prefers-color-scheme`, once behind an explicit `.dark` class — because
+      CSS has no way to share a block of declarations between selectors.
+      `tokens.test.ts` asserts the two copies are byte-identical after
+      whitespace normalisation, so the duplication cannot rot.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. COLOUR — LIGHT THEME
+   -------------------------------------------------------------------------- */
+
+:root {
+  color-scheme: light;
+
+  /* --- Surfaces -----------------------------------------------------------
+     A three-step surface ramp, not a ramp of thirty greys. Canvas is the page,
+     raised is anything that sits on it and casts a shadow, sunken is a well
+     (a table stripe, an inset code block). Only three because every additional
+     step is a decision someone has to make again in every component. */
+  --surface-canvas: #ffffff;
+  --surface-raised: #ffffff;
+  --surface-sunken: #f5f6f8;
+  --surface-inverse: #14161c;
+  --surface-scrim: rgb(10 12 18 / 62%);
+
+  /* --- Text ---------------------------------------------------------------
+     Three levels: primary (everything you must read), secondary (supporting
+     copy), tertiary (metadata, timestamps, table column heads).
+     All three clear 4.5:1 on canvas AND on sunken. That last part is the
+     constraint most systems skip: they verify against white and then discover
+     the metadata is unreadable the moment it sits in a striped table row. */
+  --text-primary: #10131a;
+  --text-secondary: #4b5261;
+  --text-tertiary: #5c6472;
+  --text-inverse: #ffffff;
+  --text-on-accent: #ffffff;
+  --text-on-danger: #ffffff;
+  --text-on-success: #ffffff;
+  --text-on-warning: #ffffff;
+  --text-on-info: #ffffff;
+
+  /* --- Borders ------------------------------------------------------------
+     THREE tiers, and the distinction is load-bearing under WCAG 2.2:
+       --border-hairline  decorative rules only. Explicitly exempt from
+                          SC 1.4.11 because it carries no information.
+       --border-control   input/checkbox/switch outlines. These ARE the
+                          component, so SC 1.4.11 applies: >= 3:1, verified.
+       --border-strong    emphasis and active state, >= 3:1, verified.
+     Collapsing control and hairline into one token is how a design system ends
+     up shipping 1.3:1 input borders and telling users it passed review. */
+  --border-hairline: #e4e6eb;
+  --border-control: #848a97;
+  --border-strong: #4b5261;
+  --border-inverse: #ffffff;
+
+  /* --- Accent (brand) ----------------------------------------------------
+     Indigo-leaning violet. Chosen over blue because the product's core screen
+     is a dense data table and a neutral-cool accent recedes into it, whereas a
+     violet with a red bias stays separable from the navy family used by
+     "information" without either reading as the other. */
+  --accent-base: #4338ca;
+  --accent-hover: #3730a3;
+  --accent-active: #312a8c;
+  --accent-subtle: #eef2ff;
+  --accent-border: #4338ca;
+
+  /* --- Status ------------------------------------------------------------
+     Each status is a three-token set (base / subtle / border) rather than one
+     colour, because status is always rendered twice: as a solid pill and as
+     text inside a tinted row. A single token would make one of the two fail. */
+  --danger-base: #b42318;
+  --danger-hover: #8f160c;
+  --danger-subtle: #fef2f2;
+  --danger-border: #b42318;
+
+  --success-base: #166534;
+  --success-subtle: #f0fdf4;
+  --success-border: #166534;
+
+  --warning-base: #854d0e;
+  --warning-subtle: #fffbeb;
+  --warning-border: #854d0e;
+
+  --info-base: #0e7490;
+  --info-subtle: #f0f9ff;
+  --info-border: #0e7490;
+
+  /* --- Focus indicator ----------------------------------------------------
+     TWO colours, always used as a pair. A single-colour ring cannot satisfy
+     SC 1.4.11 on every surface it lands on — a violet ring on a violet button
+     is 1:1 and therefore invisible, which is exactly when a keyboard user most
+     needs it. An inner ring that matches the component's own text colour plus
+     an outer ring in the theme's accent guarantees that at least one of the
+     two clears 3:1 against whatever it is drawn on.
+     See `tokens.test.ts` -> "focus indicator survives every surface". */
+  --focus-ring-inner: #ffffff;
+  --focus-ring-color: #4338ca;
+  --focus-ring-width: 2px;
+  --focus-ring-offset: 2px;
+
+  /* --- Typography ---------------------------------------------------------
+     A minor-third scale (ratio 1.2) anchored at 16px, NOT the major third
+     (1.25) that most systems reach for first. At a tournament the buyer is
+     reading a roster and a payout table on a phone in bad light; a major
+     third pushes the second step to 20px and the table stops fitting. Minor
+     third keeps every step legible while leaving density intact.
+     `--text-sm` is the 16px body size and is the floor: nothing renders body
+     copy below 16px anywhere in this system. */
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial,
+    "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+  --font-mono:
+    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+
+  --text-2xs: 0.75rem; /* 12px — legal/scale metadata, uppercase, non-essential only */
+  --text-xs: 0.875rem; /* 14px — dense table cells, column heads */
+  --text-sm: 1rem; /* 16px — BODY. The floor. Never go below this. */
+  --text-md: 1.125rem; /* 18px — large table cells, card titles */
+  --text-lg: 1.25rem; /* 20px */
+  --text-xl: 1.5rem; /* 24px — section headings */
+  --text-2xl: 1.875rem; /* 30px — page titles */
+  --text-3xl: 2.25rem; /* 36px */
+  --text-4xl: 3rem; /* 48px — marketing only */
+
+  --leading-tight: 1.15;
+  --leading-snug: 1.3;
+  --leading-normal: 1.5; /* body copy */
+  --leading-relaxed: 1.7;
+
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  --tracking-tight: -0.011em;
+  --tracking-normal: 0;
+  --tracking-wide: 0.02em;
+
+  /* --- Spacing ------------------------------------------------------------
+     4px base grid. The scale stops at 96px deliberately: this is an operations
+     product, not a marketing site, and the deep nesting that motivates huge
+     spacing scales is not a failure mode that exists here. */
+  --space-0: 0;
+  --space-1: 0.25rem; /* 4px  */
+  --space-2: 0.5rem; /* 8px  */
+  --space-3: 0.75rem; /* 12px */
+  --space-4: 1rem; /* 16px — the default component padding unit */
+  --space-5: 1.25rem; /* 20px */
+  --space-6: 1.5rem; /* 24px */
+  --space-8: 2rem; /* 32px */
+  --space-10: 2.5rem; /* 40px */
+  --space-12: 3rem; /* 48px */
+  --space-16: 4rem; /* 64px */
+  --space-24: 6rem; /* 96px */
+
+  /* --- Radii --------------------------------------------------------------
+     Slightly softer than a 4px default. 8px is the smallest radius that reads
+     as "deliberately rounded" at 1x; below that the corners alias badly on the
+     low-DPI phone screens this product is actually used on. */
+  --radius-none: 0;
+  --radius-xs: 0.25rem; /* 4px  — inputs, badges */
+  --radius-sm: 0.375rem; /* 6px  */
+  --radius-md: 0.5rem; /* 8px  — buttons, cards: the default */
+  --radius-lg: 0.75rem; /* 12px — panels, dialogs */
+  --radius-xl: 1rem; /* 16px */
+  --radius-full: 9999px; /* pills, avatars */
+
+  /* --- Shadows ------------------------------------------------------------
+     Low-alpha, warm-neutral. A pure-black shadow at any useful opacity looks
+     like a smudge on the light theme and halos on the dark one, so these are
+     expressed as a shadow colour in the token and composed with the alpha
+     scale below. */
+  --shadow-color: 12 16 27;
+  --shadow-xs: 0 1px 2px 0 rgb(var(--shadow-color) / 8%);
+  --shadow-sm: 0 1px 3px 0 rgb(var(--shadow-color) / 10%), 0 1px 2px -1px rgb(var(--shadow-color) / 10%);
+  --shadow-md: 0 4px 8px -2px rgb(var(--shadow-color) / 12%), 0 2px 4px -2px rgb(var(--shadow-color) / 10%);
+  --shadow-lg: 0 12px 24px -8px rgb(var(--shadow-color) / 16%), 0 4px 8px -4px rgb(var(--shadow-color) / 10%);
+
+  /* --- Motion -------------------------------------------------------------
+     Durations are short. This UI is used between matches, often one-handed, in
+     a room where a 500ms cross-fade feels like the app is broken. Everything
+     also honours `prefers-reduced-motion` — see globals.css. */
+  --duration-instant: 0ms;
+  --duration-fast: 120ms;
+  --duration-normal: 180ms;
+  --duration-slow: 260ms;
+
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-entrance: cubic-bezier(0, 0, 0.2, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+}
+
+/* --------------------------------------------------------------------------
+   2. COLOUR — DARK THEME (OS preference)
+
+   Duplicated verbatim into the `.dark` selector below. The drift risk that
+   duplication creates is covered by tokens.test.ts.
+   -------------------------------------------------------------------------- */
+
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    color-scheme: dark;
+
+    /* Not pure black. #000 on an OLED phone in a dark room produces halation
+       around light text and crushes the difference between a raised card and
+       the page. #0b0e14 keeps the surface separation while staying dark. */
+    --surface-canvas: #0b0e14;
+    --surface-raised: #12161f;
+    --surface-sunken: #080a0f;
+    --surface-inverse: #e8eaf0;
+    --surface-scrim: rgb(3 5 10 / 72%);
+
+    /* Lightened from the light theme. Mid-greys that read as "quietly
+       secondary" on white vibrate on near-black at the same luminance, so the
+       dark ramp starts higher and stays there. */
+    --text-primary: #e8eaf0;
+    --text-secondary: #a7aebd;
+    --text-tertiary: #8b93a3;
+    --text-inverse: #0b0e14;
+    --text-on-accent: #0b0e14;
+    --text-on-danger: #0b0e14;
+    --text-on-success: #0b0e14;
+    --text-on-warning: #0b0e14;
+    --text-on-info: #0b0e14;
+
+    --border-hairline: #232936;
+    --border-control: #5b6373;
+    --border-strong: #a7aebd;
+    --border-inverse: #0b0e14;
+
+    --accent-base: #a5b4fc;
+    --accent-hover: #c3cdfd;
+    --accent-active: #d5dcfe;
+    --accent-subtle: #1e1b4b;
+    --accent-border: #a5b4fc;
+
+    --danger-base: #f97066;
+    --danger-hover: #ff9d95;
+    --danger-subtle: #450a0a;
+    --danger-border: #f97066;
+
+    --success-base: #4ade80;
+    --success-subtle: #052e16;
+    --success-border: #4ade80;
+
+    --warning-base: #facc15;
+    --warning-subtle: #422006;
+    --warning-border: #facc15;
+
+    --info-base: #7dd3fc;
+    --info-subtle: #082f49;
+    --info-border: #7dd3fc;
+
+    --focus-ring-inner: #0b0e14;
+    --focus-ring-color: #a5b4fc;
+
+    --shadow-color: 0 0 0;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   3. COLOUR — DARK THEME (explicit class)
+
+   `.dark` on <html> wins over the OS preference and is what the theme toggle
+   writes. Declared LAST so it wins the specificity tie against
+   `:root:not(.light)` above.
+   -------------------------------------------------------------------------- */
+
+:root.dark {
+  color-scheme: dark;
+
+  --surface-canvas: #0b0e14;
+  --surface-raised: #12161f;
+  --surface-sunken: #080a0f;
+  --surface-inverse: #e8eaf0;
+  --surface-scrim: rgb(3 5 10 / 72%);
+
+  --text-primary: #e8eaf0;
+  --text-secondary: #a7aebd;
+  --text-tertiary: #8b93a3;
+  --text-inverse: #0b0e14;
+  --text-on-accent: #0b0e14;
+  --text-on-danger: #0b0e14;
+  --text-on-success: #0b0e14;
+  --text-on-warning: #0b0e14;
+  --text-on-info: #0b0e14;
+
+  --border-hairline: #232936;
+  --border-control: #5b6373;
+  --border-strong: #a7aebd;
+  --border-inverse: #0b0e14;
+
+  --accent-base: #a5b4fc;
+  --accent-hover: #c3cdfd;
+  --accent-active: #d5dcfe;
+  --accent-subtle: #1e1b4b;
+  --accent-border: #a5b4fc;
+
+  --danger-base: #f97066;
+  --danger-hover: #ff9d95;
+  --danger-subtle: #450a0a;
+  --danger-border: #f97066;
+
+  --success-base: #4ade80;
+  --success-subtle: #052e16;
+  --success-border: #4ade80;
+
+  --warning-base: #facc15;
+  --warning-subtle: #422006;
+  --warning-border: #facc15;
+
+  --info-base: #7dd3fc;
+  --info-subtle: #082f49;
+  --info-border: #7dd3fc;
+
+  --focus-ring-inner: #0b0e14;
+  --focus-ring-color: #a5b4fc;
+
+  --shadow-color: 0 0 0;
+}

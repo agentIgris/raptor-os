@@ -1,0 +1,287 @@
+/* ==========================================================================
+   Raptor OS base layer.
+
+   Imported ONCE, by the app root layout. Everything here is either a Tailwind
+   theme mapping of the token file, or a rule that has no business being a
+   per-component class because getting it wrong is a WCAG failure rather than a
+   visual inconsistency.
+   ========================================================================== */
+
+@import "tailwindcss";
+
+/* The token layer is imported before Tailwind so that `@theme inline` below can
+   reference custom properties that already exist. */
+@import "./tokens.css";
+
+/* Component sources for this package. The consuming app adds its own `@source`
+   for its own directory — see apps/web/src/app/globals.css. */
+@source "..";
+
+/* --------------------------------------------------------------------------
+   Tailwind theme mapping.
+
+   `inline` makes Tailwind emit `var(--surface-canvas)` directly in utilities
+   instead of re-declaring the value in a generated `:root`. That matters: a
+   non-inline mapping would snapshot the LIGHT value into a second `:root`
+   block that wins over `.dark`, and the dark theme would silently never
+   apply. This one keyword is the difference between a working dark mode and a
+   decorative one.
+   -------------------------------------------------------------------------- */
+
+@theme inline {
+  /* Colour — surfaces */
+  --color-canvas: var(--surface-canvas);
+  --color-raised: var(--surface-raised);
+  --color-sunken: var(--surface-sunken);
+  --color-inverse: var(--surface-inverse);
+  --color-scrim: var(--surface-scrim);
+
+  /* Colour — text */
+  --color-ink: var(--text-primary);
+  --color-ink-muted: var(--text-secondary);
+  --color-ink-faint: var(--text-tertiary);
+  --color-ink-inverse: var(--text-inverse);
+  --color-on-accent: var(--text-on-accent);
+  --color-on-danger: var(--text-on-danger);
+  --color-on-success: var(--text-on-success);
+  --color-on-warning: var(--text-on-warning);
+  --color-on-info: var(--text-on-info);
+
+  /* Colour — borders.
+     `hairline` / `control` / `strong` are named rather than numbered on
+     purpose: they are three tiers with three different WCAG obligations, and
+     `--border-1` would invite somebody to use them interchangeably. */
+  --color-hairline: var(--border-hairline);
+  --color-control: var(--border-control);
+  --color-strong: var(--border-strong);
+  --color-line-inverse: var(--border-inverse);
+
+  /* Colour — accent */
+  --color-accent: var(--accent-base);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-active: var(--accent-active);
+  --color-accent-soft: var(--accent-subtle);
+  --color-accent-line: var(--accent-border);
+
+  /* Colour — status */
+  --color-danger: var(--danger-base);
+  --color-danger-hover: var(--danger-hover);
+  --color-danger-soft: var(--danger-subtle);
+  --color-success: var(--success-base);
+  --color-success-soft: var(--success-subtle);
+  --color-warning: var(--warning-base);
+  --color-warning-soft: var(--warning-subtle);
+  --color-info: var(--info-base);
+  --color-info-soft: var(--info-subtle);
+
+  /* shadcn/ui's canonical names, mapped onto the same values.
+     The shadcn CLI and any community component expect `--background` /
+     `--foreground`; aliasing them here means a dropped-in shadcn component
+     inherits the verified palette instead of introducing its own greys. */
+  --color-background: var(--surface-canvas);
+  --color-foreground: var(--text-primary);
+  --color-card: var(--surface-raised);
+  --color-card-foreground: var(--text-primary);
+  --color-popover: var(--surface-raised);
+  --color-popover-foreground: var(--text-primary);
+  --color-muted: var(--surface-sunken);
+  --color-muted-foreground: var(--text-secondary);
+  --color-primary: var(--accent-base);
+  --color-primary-foreground: var(--text-on-accent);
+  --color-secondary: var(--surface-sunken);
+  --color-secondary-foreground: var(--text-primary);
+  --color-accent-shadcn: var(--accent-subtle);
+  --color-accent-shadcn-foreground: var(--accent-base);
+  --color-destructive: var(--danger-base);
+  --color-destructive-foreground: var(--text-on-danger);
+  --color-border: var(--border-control);
+  --color-input: var(--border-control);
+  --color-ring: var(--focus-ring-color);
+
+  /* Typography */
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+
+  --text-2xs: var(--text-2xs);
+  --text-xs: var(--text-xs);
+  --text-sm: var(--text-sm);
+  --text-md: var(--text-md);
+  --text-lg: var(--text-lg);
+  --text-xl: var(--text-xl);
+  --text-2xl: var(--text-2xl);
+  --text-3xl: var(--text-3xl);
+  --text-4xl: var(--text-4xl);
+
+  --leading-tight: var(--leading-tight);
+  --leading-snug: var(--leading-snug);
+  --leading-normal: var(--leading-normal);
+  --leading-relaxed: var(--leading-relaxed);
+
+  --tracking-tight: var(--tracking-tight);
+  --tracking-normal: var(--tracking-normal);
+  --tracking-wide: var(--tracking-wide);
+  --font-weight-normal: var(--weight-regular);
+  --font-weight-medium: var(--weight-medium);
+  --font-weight-semibold: var(--weight-semibold);
+  --font-weight-bold: var(--weight-bold);
+
+  /* Spacing — every named step resolves to a token, so `p-4` in a component
+     and `--space-4` in a design spec cannot drift apart. */
+  --spacing: 0.25rem;
+  --spacing-0: var(--space-0);
+  --spacing-1: var(--space-1);
+  --spacing-2: var(--space-2);
+  --spacing-3: var(--space-3);
+  --spacing-4: var(--space-4);
+  --spacing-5: var(--space-5);
+  --spacing-6: var(--space-6);
+  --spacing-8: var(--space-8);
+  --spacing-10: var(--space-10);
+  --spacing-12: var(--space-12);
+  --spacing-16: var(--space-16);
+  --spacing-24: var(--space-24);
+
+  /* Radii */
+  --radius-none: var(--radius-none);
+  --radius-xs: var(--radius-xs);
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+  --radius-full: var(--radius-full);
+
+  /* Shadows */
+  --shadow-xs: var(--shadow-xs);
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+
+  /* Motion */
+  --ease-standard: var(--ease-standard);
+  --ease-entrance: var(--ease-entrance);
+  --ease-exit: var(--ease-exit);
+}
+
+/* --------------------------------------------------------------------------
+   Base.
+
+   Written with bare custom properties rather than `@apply`, because `@apply`
+   in a Tailwind v4 base layer cannot see utilities generated from the same
+   sheet without an ordering dance. These are three rules; indirection would
+   cost more than it saves.
+   -------------------------------------------------------------------------- */
+
+@layer base {
+  *,
+  *::before,
+  *::after {
+    border-color: var(--border-hairline);
+  }
+
+  html {
+    /* Anchor links must not hide the target underneath the sticky header. */
+    scroll-padding-top: var(--space-16);
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--surface-canvas);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    /* 16px is the token floor for body copy; stating it here means a
+       component that forgets `text-sm` still inherits a legible size rather
+       than the browser default of 16px times whatever it set. */
+    font-size: var(--text-sm);
+    line-height: var(--leading-normal);
+    /* WCAG 1.4.12 (AA, new in 2.2): text must be able to be resized to 200%
+       without loss of content. `rem`-based type and no `overflow: hidden` on
+       text containers are what make that possible; this rule is the backstop
+       for anything that tries. */
+    text-size-adjust: 100%;
+  }
+
+  /*
+   * THE FOCUS INDICATOR.
+
+   * Applies to every natively focusable element and anything explicitly given a
+   * tabindex, so it cannot be forgotten when a new primitive is added.
+
+   * It is TWO rings, not one. A single ring cannot clear SC 1.4.11 against
+   * every background this system renders on — a violet ring on a violet
+   * primary button is 1:1. `box-shadow` paints the inner ring flush against
+   * the element (in the theme's "text on this surface" colour) and `outline`
+   * paints the outer ring in the accent colour, separated by exactly
+   * `--focus-ring-offset`. At least one of the two clears 3:1 against whatever
+   * it lands on; `tokens.test.ts` proves it for every surface in both themes.
+
+   * `outline: none` appears nowhere. It is the single most common way an
+   * accessible-by-default claim is quietly withdrawn, and it is exactly the
+   * defect the legacy project shipped.
+   */
+  :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+    outline: var(--focus-ring-width) solid var(--focus-ring-color);
+    outline-offset: var(--focus-ring-offset);
+    box-shadow: 0 0 0 var(--focus-ring-offset) var(--focus-ring-inner);
+  }
+
+  /*
+   * Windows High Contrast / `forced-colors`.
+   *
+   * In forced-colors mode the author colours are discarded, which would
+   * collapse both rings to the same system colour and make the indicator
+   * invisible. Drop the box-shadow and paint the outline in the system
+   * highlight colour instead, which is guaranteed visible against everything
+   * the OS paints.
+   */
+  @media (forced-colors: active) {
+    :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+      outline: 3px solid Highlight;
+      outline-offset: 2px;
+      box-shadow: none;
+    }
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Reduced motion.
+
+   WCAG 2.3.3 is AAA but is also, in practice, the difference between an app
+   that someone can use at a tournament and one they turn off. `!important` is
+   required: without it, a component's own `transition-*` utility wins on
+   order and the preference is silently ignored.
+   -------------------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Forced higher contrast.
+
+   WCAG 1.4.6 is AAA, but the OS setting is free and the dense table view is
+   the one place it is most needed: text is pushed to the primary ramp and
+   every control border to the "strong" tier.
+   -------------------------------------------------------------------------- */
+
+@media (prefers-contrast: more) {
+  :root {
+    --text-secondary: var(--text-primary);
+    --text-tertiary: var(--text-primary);
+    --border-control: var(--text-primary);
+    --border-strong: var(--text-primary);
+  }
+
+  :root.dark {
+    --text-secondary: var(--text-primary);
+    --text-tertiary: var(--text-primary);
+    --border-control: var(--text-primary);
+    --border-strong: var(--text-primary);
+  }
+}

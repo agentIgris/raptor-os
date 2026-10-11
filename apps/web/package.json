@@ -1,0 +1,44 @@
+{
+  "name": "@raptor/web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Next.js App Router — the only deployable app",
+  "scripts": {
+    "dev": "next dev --webpack --port 3000",
+    "build": "next build --webpack",
+    "start": "next start --port 3000",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --coverage",
+    "test:unit": "vitest run",
+    "test:e2e": "next build --webpack && playwright test --project=e2e",
+    "test:a11y": "next build --webpack && playwright test --project=a11y",
+    "ci": "pnpm lint && pnpm typecheck && pnpm test"
+  },
+  "dependencies": {
+    "@raptor/auth": "workspace:*",
+    "@raptor/core": "workspace:*",
+    "@raptor/observability": "workspace:*",
+    "@raptor/ui": "workspace:*",
+    "better-auth": "1.7.7",
+    "next": "16.4.0",
+    "pg": "8.23.1",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
+    "@playwright/test": "1.64.0",
+    "@tailwindcss/postcss": "4.3.3",
+    "@types/node": "24.10.1",
+    "@types/pg": "8.23.1",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitest/coverage-v8": "5.0.3",
+    "axe-core": "4.14.0",
+    "jsdom": "30.1.2",
+    "tailwindcss": "4.3.3",
+    "typescript": "6.0.3",
+    "vitest": "5.0.3"
+  }
+}

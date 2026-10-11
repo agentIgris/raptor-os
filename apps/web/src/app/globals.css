@@ -1,0 +1,17 @@
+/* Raptor OS — the application's stylesheet entry point.
+ *
+ * The design system itself lives in `@raptor/ui` and is imported here rather
+ * than duplicated, so there is exactly one `tailwindcss` entry in the product
+ * and one place where the base layer (focus rings, reduced motion, forced
+ * colours) is loaded.
+ *
+ * The extra `@source` below is the only thing this file adds: it tells Tailwind
+ * to scan this app's own source tree. `@raptor/ui`'s stylesheet scans its own
+ * package; a Tailwind CSS-first setup has no other way to discover the
+ * application's files, and forgetting this is the usual cause of a build that
+ * succeeds and then renders unstyled.
+ */
+
+@import "@raptor/ui/styles.css";
+
+@source "../../";

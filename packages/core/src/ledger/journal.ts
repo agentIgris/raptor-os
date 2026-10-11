@@ -66,6 +66,7 @@ import { createHash } from "node:crypto";
 
 import type { CurrencyCode, Money } from "../money/index.js";
 import { minorToDecimal, money, zero } from "../money/index.js";
+import { invertRate, parseRate } from "./rate.js";
 
 /** Which side of the double entry a line sits on. */
 export type Direction = "debit" | "credit";
@@ -213,7 +214,7 @@ export function reverseJournal(journal: PostedJournal, options: ReverseJournalOp
   const reversedConversions: FxConversion[] = journal.conversions.map((c) => ({
     from: c.to,
     to: c.from,
-    rate: reciprocalRate(c.rate),
+    rate: invertRate(c.rate),
   }));
 
   return postJournal({
@@ -501,123 +502,14 @@ function assertResolved(nets: ReadonlyMap<string, bigint>): void {
 
 // --- rate parsing -----------------------------------------------------------
 
-interface ExactRate {
-  /** Numerator: minor units of `to` per `denominator` minor units of `from`. */
-  readonly numerator: bigint;
-  readonly denominator: bigint;
-  /** Canonical decimal text: the same rate never has two spellings. */
-  readonly text: string;
-}
-
-const DECIMAL_RATE_PATTERN = /^\d+(\.\d+)?$/;
-const FRACTION_RATE_PATTERN = /^(\d+)\/(\d+)$/;
-
-/**
- * Parse an exchange rate into an exact rational, reduced to lowest terms.
- *
- * Both `0.119` and `119/1000` are accepted and both canonicalise to the same
- * text, so one economic event can never produce two journal hashes.
- *
- * The canonical form is a decimal when the rate has one, and a fraction when it
- * does not. That second case is not a nicety: the reciprocal of a terminating
- * decimal usually does not terminate (`1 / 0.119 = 1000/119`), and {@link
- * reverseJournal} needs the reciprocal. Accepting only decimals would force the
- * reversal to round.
+/*
+ * The exact-rational rate arithmetic now lives in `./rate.ts`, extracted rather
+ * than reimplemented. `../fx/rate-book.ts` needs the same inversion and
+ * composition this module always needed, and a second copy of "what is an exact
+ * rate" is how two layers come to disagree about FX — which is to say, about
+ * money. The three functions below are the module's own code, unchanged.
  */
-function parseRate(rate: string): ExactRate {
-  const text = rate.trim();
-  const decimal = DECIMAL_RATE_PATTERN.exec(text);
-  const fraction = decimal ? null : FRACTION_RATE_PATTERN.exec(text);
 
-  if (!decimal && !fraction) {
-    throw new Error(
-      `Invalid conversion rate ${JSON.stringify(rate)}: expected a positive decimal such as "0.119" or an exact fraction such as "1000/119"`,
-    );
-  }
-
-  let numerator: bigint;
-  let denominator: bigint;
-
-  if (fraction) {
-    numerator = BigInt(fraction[1]!);
-    denominator = BigInt(fraction[2]!);
-  } else {
-    const [whole = "0", fractionalPart = ""] = text.split(".");
-    numerator = BigInt(`${whole}${fractionalPart}`);
-    denominator = 10n ** BigInt(fractionalPart.length);
-  }
-
-  if (numerator <= 0n) {
-    throw new Error(`Invalid conversion rate ${JSON.stringify(rate)}: the rate must be positive`);
-  }
-  if (denominator <= 0n) {
-    throw new Error(`Invalid conversion rate ${JSON.stringify(rate)}: the rate's denominator must be positive`);
-  }
-
-  const divisor = greatestCommonDivisor(numerator, denominator);
-  const reducedNumerator = numerator / divisor;
-  const reducedDenominator = denominator / divisor;
-
-  return { numerator: reducedNumerator, denominator: reducedDenominator, text: canonicalRateText(reducedNumerator, reducedDenominator) };
-}
-
-/**
- * Render a reduced rational as a decimal if one exists, else as a fraction.
- *
- * A reduced fraction terminates in base 10 exactly when its denominator has no
- * prime factors other than 2 and 5. Anything else would need an infinite
- * expansion, so it stays a fraction rather than being truncated.
- */
-function canonicalRateText(numerator: bigint, denominator: bigint): string {
-  let twos = 0;
-  let fives = 0;
-  let rest = denominator;
-  while (rest % 2n === 0n) {
-    rest /= 2n;
-    twos++;
-  }
-  while (rest % 5n === 0n) {
-    rest /= 5n;
-    fives++;
-  }
-
-  if (rest !== 1n) {
-    return `${numerator}/${denominator}`;
-  }
-
-  const scale = Math.max(twos, fives);
-  if (scale === 0) {
-    return numerator.toString();
-  }
-
-  const scaled = (numerator * 10n ** BigInt(scale)) / denominator;
-  const digits = scaled.toString().padStart(scale + 1, "0");
-  return `${digits.slice(0, -scale)}.${digits.slice(-scale)}`;
-}
-
-function greatestCommonDivisor(a: bigint, b: bigint): bigint {
-  // Both arguments are positive by the time this is reached: `parseRate` has
-  // already rejected a non-positive numerator or denominator.
-  let x = a;
-  let y = b;
-  while (y !== 0n) {
-    const remainder = x % y;
-    x = y;
-    y = remainder;
-  }
-  return x;
-}
-
-/**
- * The exact reciprocal of a rate, in canonical form.
- *
- * Kept in the rate vocabulary rather than computed as `1/rate` so the reversal
- * never passes through floating point.
- */
-function reciprocalRate(rate: string): string {
-  const exact = parseRate(rate);
-  return canonicalRateText(exact.denominator, exact.numerator);
-}
 
 // --- assembly ---------------------------------------------------------------
 
