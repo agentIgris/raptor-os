@@ -243,6 +243,7 @@ describe("constraints exist", () => {
     ["session_expiry_after_creation_check", '"session"'],
     ["account_provider_id_present_check", '"account"'],
     ["two_factor_failed_count_nonnegative_check", '"twoFactor"'],
+    ["two_factor_lock_requires_failures_check", '"twoFactor"'],
     ["rate_limit_count_nonnegative_check", '"rateLimit"'],
   ])("installs %s", async (constraint, table) => {
     const result = await fixture.ownerPool.query<{ n: number }>(
@@ -251,6 +252,72 @@ describe("constraints exist", () => {
     );
 
     expect(result.rows[0]?.n, `${constraint} on ${table}`).toBe(1);
+  });
+});
+
+describe("the twoFactor lock constraint matches what Better Auth actually writes", () => {
+  // The previous constraint here was
+  //
+  //     CHECK ("lockedUntil" IS NULL OR "verified" IS NOT TRUE)
+  //
+  // and it rejected the lockout's own write. Better Auth sets `lockedUntil` and
+  // leaves `verified` alone, so for every ENROLLED user -- the only users a TOTP
+  // guessing attack targets -- the lock could never be persisted and
+  // `accountLockout` was inert. These two tests are the regression.
+  it("permits a verified enrolment to be locked, which is the state the plugin writes", async () => {
+    const user = await fixture.ownerPool.query<{ id: string }>(
+      `INSERT INTO "user" ("name", "email", "emailVerified", "role", "twoFactorEnabled")
+       VALUES ('Lock Tester', 'lockable@example.invalid', true, 'player', true)
+       RETURNING "id"`,
+    );
+    const userId = user.rows[0]?.id;
+    if (userId === undefined) throw new Error("fixture user row missing");
+
+    const inserted = await fixture.ownerPool.query<{ lockedUntil: Date | null }>(
+      `INSERT INTO "twoFactor" ("secret", "backupCodes", "userId", "verified",
+                                "failedVerificationCount", "lockedUntil")
+       VALUES ($1, $2, $3, true, 5, now() + interval '15 minutes')
+       RETURNING "lockedUntil"`,
+      ["encrypted-secret", "encrypted-backup-codes", userId],
+    );
+
+    expect(inserted.rows[0]?.lockedUntil, "the lock must persist, not raise 23514").not.toBeNull();
+  });
+
+  it("refuses a lock with no failures behind it", async () => {
+    // The invariant that replaced the broken one: a lock must be explained.
+    const user = await fixture.ownerPool.query<{ id: string }>(
+      `INSERT INTO "user" ("name", "email", "emailVerified", "role", "twoFactorEnabled")
+       VALUES ('Lock Tester', 'unexplained-lock@example.invalid', true, 'player', true)
+       RETURNING "id"`,
+    );
+    const userId = user.rows[0]?.id;
+    if (userId === undefined) throw new Error("fixture user row missing");
+
+    let code: string | null = null;
+    try {
+      await fixture.ownerPool.query(
+        `INSERT INTO "twoFactor" ("secret", "backupCodes", "userId", "verified",
+                                  "failedVerificationCount", "lockedUntil")
+         VALUES ($1, $2, $3, true, 0, now() + interval '15 minutes')`,
+        ["encrypted-secret", "encrypted-backup-codes", userId],
+      );
+    } catch (error) {
+      code = (error as { code?: string }).code ?? null;
+    }
+
+    expect(code).toBe("23514");
+  });
+
+  it("no longer contains the constraint that defeated the lockout", async () => {
+    // Asserted on the FILE as well as the database, because the defect shipped as
+    // a line of SQL that a re-run of this file would otherwise restore.
+    const result = await fixture.ownerPool.query<{ n: number }>(
+      "SELECT count(*)::int AS n FROM pg_constraint WHERE conname = $1",
+      ["two_factor_verified_only_when_not_locked_check"],
+    );
+
+    expect(result.rows[0]?.n).toBe(0);
   });
 });
 

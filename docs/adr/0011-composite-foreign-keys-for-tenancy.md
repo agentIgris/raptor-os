@@ -47,9 +47,19 @@ same-tenant FK accepted: OK
 - Every referenced table needs `UNIQUE (org_id, id)`, even where `id` alone is already a
   primary key. Some redundancy in the index set; accepted deliberately.
 - Composite joins are slightly more verbose.
-- A migration that forgets `org_id` in a foreign key is a silent isolation hole. Mitigated
-  by a schema-conformance test that reflects every FK and asserts the composite form — see
-  ADR-0012.
+- A migration that forgets `org_id` in a foreign key is a silent isolation hole. **It shipped
+  once, on the four tables the conformance test's list did not contain** — `role`,
+  `role_permission`, `role_scope_rule` and `role_assignment`, the tables that grant authority.
+  A cross-tenant `role_assignment` was accepted by the database until a red-team review in
+  October 2026, and it shipped *through a passing conformance test*, because that test
+  reflected every FK **in a hard-coded list of tables it already knew about**. A list is only
+  as current as the last person who remembered to extend it.
+
+  The test now derives its scope from `pg_attribute` rather than from a list. It also derives
+  the tenant root structurally — the tables other tenant tables reference on their `org_id`
+  column — because the tenant root has no `org_id` column at all and is therefore invisible to
+  the obvious form of the rule. An earlier version of that derivation, "a tenant table is one
+  with `org_id NOT NULL`", also reported green on the broken schema for exactly that reason.
 
 ## Companion rules
 

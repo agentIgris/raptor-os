@@ -17,6 +17,7 @@
 import { relations, sql } from "drizzle-orm";
 import {
   boolean,
+  foreignKey,
   index,
   integer,
   jsonb,
@@ -311,9 +312,7 @@ export const rolePermission = pgTable(
     orgId: uuid("org_id")
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
-    roleId: uuid("role_id")
-      .notNull()
-      .references(() => role.id, { onDelete: "cascade" }),
+    roleId: uuid("role_id").notNull(),
     permissionId: uuid("permission_id")
       .notNull()
       .references(() => permission.id, { onDelete: "cascade" }),
@@ -321,6 +320,16 @@ export const rolePermission = pgTable(
   (table) => [
     primaryKey({ columns: [table.roleId, table.permissionId] }),
     index("role_permission_org_idx").on(table.orgId),
+    // Composite on purpose (migration 0013). The database enforces
+    // FOREIGN KEY (org_id, role_id) REFERENCES role (org_id, id); declaring the
+    // single-column reference here is what the schema looked like before, and
+    // declaring the wrong thing in the typed schema is how the wrong thing
+    // survives a review.
+    foreignKey({
+      name: "role_permission_role_org_id_fkey",
+      columns: [table.orgId, table.roleId],
+      foreignColumns: [role.orgId, role.id],
+    }).onDelete("cascade"),
   ],
 );
 
@@ -332,15 +341,19 @@ export const roleScopeRule = pgTable(
     orgId: uuid("org_id")
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
-    roleId: uuid("role_id")
-      .notNull()
-      .references(() => role.id, { onDelete: "cascade" }),
+    roleId: uuid("role_id").notNull(),
     scopeType: scopeType("scope_type").notNull(),
     maxScopeRank: integer("max_scope_rank").notNull().default(0),
   },
   (table) => [
     uniqueIndex("role_scope_rule_unique_key").on(table.roleId, table.scopeType),
     index("role_scope_rule_org_idx").on(table.orgId),
+    // Composite on purpose (migration 0013) — see `rolePermission`.
+    foreignKey({
+      name: "role_scope_rule_role_org_id_fkey",
+      columns: [table.orgId, table.roleId],
+      foreignColumns: [role.orgId, role.id],
+    }).onDelete("cascade"),
   ],
 );
 
@@ -361,9 +374,7 @@ export const roleAssignment = pgTable(
     personId: uuid("person_id")
       .notNull()
       .references(() => person.id, { onDelete: "restrict" }),
-    roleId: uuid("role_id")
-      .notNull()
-      .references(() => role.id, { onDelete: "restrict" }),
+    roleId: uuid("role_id").notNull(),
     scopeType: scopeType("scope_type").notNull().default("organization"),
     scopeId: uuid("scope_id"),
     validFrom: timestamp("valid_from", { withTimezone: true }).notNull(),
@@ -377,6 +388,17 @@ export const roleAssignment = pgTable(
     index("role_assignment_current_key")
       .on(table.orgId, table.personId, table.roleId)
       .where(sql`${table.validTo} IS NULL`),
+    // Composite on purpose (migration 0013) — see `rolePermission`.
+    //
+    // RESTRICT, not CASCADE: this is the one of the three where deleting a role
+    // must be REFUSED while somebody holds it. A silently deleted grant is an
+    // authority nobody decided to remove, which is the opposite of what the other
+    // two do — deleting a role deletes what it may do and how far it reaches.
+    foreignKey({
+      name: "role_assignment_role_org_id_fkey",
+      columns: [table.orgId, table.roleId],
+      foreignColumns: [role.orgId, role.id],
+    }).onDelete("restrict"),
   ],
 );
 

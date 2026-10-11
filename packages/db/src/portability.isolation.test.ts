@@ -325,6 +325,13 @@ function literal(value: string): string {
  *     empty, and the wipe then leaves organisation A's people behind, which the
  *     round trip would faithfully reproduce as "the export contains people the
  *     import did not restore".
+ *
+ * Since 0013 the closure takes NO organisation argument: it derives the tenant
+ * from `current_org_id()`, because a caller-chosen `p_org_id` on a SECURITY
+ * DEFINER function let the anonymous `raptor_public` role ask for any tenant's
+ * roster. The session is therefore set to the tenant being wiped for the
+ * duration of the call and restored immediately afterwards, so the wipe cannot
+ * change the context a later assertion runs under.
  */
 async function wipeTenantData(): Promise<void> {
   await asOwner(`
@@ -333,8 +340,12 @@ async function wipeTenantData(): Promise<void> {
       t          text;
       v_people   uuid[];
       v_disabled text[] := ARRAY[]::text[];
+      v_previous text;
     BEGIN
-      v_people := public.portability_person_closure('${ORG_A}'::uuid);
+      v_previous := current_setting('app.org_id', true);
+      PERFORM set_config('app.org_id', '${ORG_A}', false);
+
+      v_people := public.portability_person_closure();
 
       FOR t IN
         SELECT table_name FROM public.portability_export_contract()
@@ -356,6 +367,8 @@ async function wipeTenantData(): Promise<void> {
       FOREACH t IN ARRAY v_disabled LOOP
         EXECUTE format('ALTER TABLE public.%I ENABLE TRIGGER USER', t);
       END LOOP;
+
+      PERFORM set_config('app.org_id', coalesce(v_previous, ''), false);
     END
     $wipe$;
   `);

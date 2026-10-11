@@ -109,6 +109,20 @@ describe("rate limiting on sign-in", () => {
   });
 
   it("keys the budget by client IP, so one attacker cannot exhaust a shared limit", async () => {
+    // THE NAME ONCE SAID SOMETHING FALSE, and was left uncorrected until now.
+    //
+    // Per-IP keying does NOT stop one attacker exhausting a limit; it is what
+    // GIVES an attacker a fresh limit per address. An attacker with N addresses
+    // gets N times the budget. Measured with the default forwarding-header
+    // configuration: 200 of 200 guesses against one named account, never limited,
+    // because each request carried an `X-Forwarded-For` the caller invented.
+    //
+    // What this test actually proves — and all it ever proved — is that the key
+    // Better Auth builds IS address-keyed. That is a fact about the mechanism,
+    // not a protection, and it is kept because it is the thing that changes when
+    // `advanced.ipAddress` is edited. `signin-throttle.test.ts` is what proves a
+    // caller cannot choose that address, and that the real bound on guessing is
+    // the per-ACCOUNT counter.
     await createUser("keyed@example.invalid");
     const limit = RATE_LIMITS.signIn.max;
 

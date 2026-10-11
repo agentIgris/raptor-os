@@ -26,6 +26,12 @@
 -- `DROP TRIGGER IF EXISTS` before `CREATE TRIGGER` together mean a partially
 -- applied state converges rather than aborting partway.
 --
+-- ONE EXCEPTION, DELIBERATE: re-running this file does NOT restore a constraint
+-- that was deliberately removed, because the one that was removed was WRONG and
+-- must not come back. A deployment whose tables already exist from an earlier run
+-- needs this as a numbered migration, like any other schema change;
+-- `schema.sql` is not that migration tool.
+--
 -- APPLY AS: `raptor_migrator` (SUPERUSER). Never as `raptor_app`.
 -- =============================================================================
 
@@ -225,9 +231,35 @@ CREATE TABLE IF NOT EXISTS "twoFactor" (
   CONSTRAINT two_factor_failed_count_nonnegative_check
     CHECK ("failedVerificationCount" IS NULL OR "failedVerificationCount" >= 0),
 
-  -- An account is either locked until some instant or it is not locked.
-  CONSTRAINT two_factor_verified_only_when_not_locked_check
-    CHECK ("lockedUntil" IS NULL OR "verified" IS NOT TRUE)
+  -- A LOCK MUST HAVE EVIDENCE BEHIND IT.
+  --
+  -- This constraint REPLACED
+  --
+  --     CONSTRAINT two_factor_verified_only_when_not_locked_check
+  --       CHECK ("lockedUntil" IS NULL OR "verified" IS NOT TRUE)
+  --
+  -- which was a live defect, not a style preference. Better Auth's lockout writes
+  -- `lockedUntil` without ever clearing `verified`
+  -- (`dist/plugins/two-factor/verify-two-factor.mjs`, `recordTwoFactorFailure`), and
+  -- it clears only `lockedUntil` and the counter afterwards
+  -- (`resetTwoFactorFailures`). So the old constraint rejected precisely the state
+  -- the library creates, for every ENROLLED user -- and enrolment is the only
+  -- state in which TOTP guessing is possible at all.
+  --
+  -- Measured, against this schema: a verified row with `lockedUntil` set is
+  -- refused with SQLSTATE 23514
+  -- (`violates check constraint "two_factor_verified_only_when_not_locked_check"`),
+  -- so `accountLockout: { enabled: true }` in `config.ts` could count failures but
+  -- could never lock an account. The control was described in a comment as
+  -- load-bearing and was inert. `load-bearing-settings.test.ts` asserts the lock
+  -- now persists; that test is what turned this from a claim into a finding.
+  --
+  -- "Verified" means "the user proved they hold the secret". It says nothing about
+  -- whether they are currently in good standing, so conflating the two was the
+  -- original mistake. The invariant actually worth keeping is that a lock is never
+  -- unexplained, which is what this constraint states.
+  CONSTRAINT two_factor_lock_requires_failures_check
+    CHECK ("lockedUntil" IS NULL OR COALESCE("failedVerificationCount", 0) > 0)
 );
 
 CREATE INDEX IF NOT EXISTS "twoFactor_secret_idx" ON "twoFactor" ("secret");
@@ -567,6 +599,67 @@ GRANT EXECUTE ON FUNCTION auth_set_active_org(text, uuid) TO raptor_app;
 -- The predicate is the SAME role check as every other identity table, which is
 -- the point: it grants no organisation anything, and the tenant boundary is
 -- enforced by the forced-RLS business tables in `packages/db`.
+-- =============================================================================
+-- BLAST RADIUS — READ THIS BEFORE RELYING ON ANY OF THE ABOVE
+-- =============================================================================
+--
+-- The policy below is `USING (session_user = 'raptor_app')`, and it is worth
+-- being precise about what that does and does not do, because "protected by role"
+-- reads like a boundary and is not one.
+--
+--   - `session_user` is the INVOKING ROLE. For every query this package issues,
+--     it is `raptor_app`. So the predicate is TRUE for EVERY ROW in EVERY auth
+--     table. It filters nothing for the only role that runs queries.
+--   - These tables are `ENABLE`d, not `FORCE`d, so `relforcerowsecurity` is
+--     false and the TABLE OWNER (`raptor_migrator`) bypasses the policy entirely.
+--   - The GRANTs at the foot of this file give `raptor_app` blanket
+--     `SELECT, INSERT, UPDATE, DELETE` on all six tables.
+--
+-- COMBINED, THE RESULT IS:
+--
+--     ANY SQL-READ PRIMITIVE ANYWHERE IN THE APPLICATION YIELDS EVERY SESSION
+--     TOKEN, EVERY PASSWORD HASH, EVERY RESET AND VERIFICATION TOKEN, AND EVERY
+--     ENCRYPTED TOTP SECRET FOR EVERY ACCOUNT IN THE DEPLOYMENT.
+--
+-- This is a KNOWN, ACCEPTED LIMITATION OF ADR-0017, which classified the auth
+-- tables as org-independent identity data. It is recorded here so that it is not
+-- mistaken for a defence. It is NOT fixed in this file, and it must not be
+-- "fixed" by quietly adding a tenant predicate: the circle is unresolvable in
+-- that direction, because resolving the tenant needs the session and reading the
+-- session needs the tenant. The long write-up is in the RLS section above.
+--
+-- WHAT THIS MEANS CONCRETELY
+-- --------------------------
+-- An SSRF to an internal endpoint, an RCE, a stray debug route, a SQL injection,
+-- or any compromised dependency holding a DB connection is not "a partial leak".
+-- It is total, immediate compromise of every account, including every `admin` and
+-- `owner`, and it requires no further work by the attacker:
+--
+--   - session tokens replay verbatim as cookies, and this package no longer issues
+--     one that outlives a rotation window (see `session-rotation.test.ts`);
+--   - `twoFactor.secret` is encrypted at rest, but the key is
+--     `BETTER_AUTH_SECRET` in the same process, so a reader of this database is
+--     an oracle for every enrolled authenticator;
+--   - `verification.value` rows are single-use bearer credentials for password
+--     reset and email verification.
+--
+-- WHAT ACTUALLY CARRIES THE BOUNDARY, therefore, is everything that keeps a SQL
+-- read primitive from existing at all:
+--
+--   1. `raptor_app` is NOSUPERUSER NOBYPASSRLS and `env.ts` refuses a
+--      `DATABASE_URL` naming `raptor_migrator` or `postgres`;
+--   2. no raw SQL is reachable from the application at all -- there is no query
+--      builder in this package that accepts caller input, and no endpoint that
+--      returns rows;
+--   3. the tenant boundary on BUSINESS data is enforced independently, by forced
+--      RLS in `packages/db`.
+--
+-- Item 2 is the load-bearing one, and it is a property of the code rather than of
+-- the schema. Any future endpoint, script, or debugging affordance that turns a
+-- caller-supplied value into SQL invalidates this entire section. That is the
+-- condition under which ADR-0017 has to be revisited.
+-- =============================================================================
+
 ALTER TABLE "user"        ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "account"     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "verification" ENABLE ROW LEVEL SECURITY;

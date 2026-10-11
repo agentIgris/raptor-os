@@ -60,6 +60,17 @@ export const TEST_PASSWORD = "local-test-only-password-never-used-elsewhere";
 /** Signing secret for the test instance. Same reasoning as above. */
 const TEST_SECRET = "local-test-only-signing-secret-0123456789abcdef";
 
+/*
+ * NOTE ON WHY THIS VALUE IS WHAT IT IS
+ * -----------------------------------
+ * `readAuthEnv` applies the SAME signing-secret policy in every environment, and
+ * `TEST_ENV` below therefore has to satisfy the production rule: minimum length,
+ * minimum distinct characters, no placeholder. If the policy is ever tightened
+ * and this constant no longer passes, `secret-strength.test.ts` fails with the
+ * name of the rule -- and the FIXTURE is what gets updated, not the policy. A test
+ * suite is not permitted to become the reason a security rule is loosened.
+ */
+
 /** Must match `trustedOrigins` in the options, or Better Auth rejects the request. */
 export const TEST_BASE_URL = "http://localhost:3000";
 

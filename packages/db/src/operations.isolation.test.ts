@@ -749,36 +749,117 @@ describe("operations schema — isolation", () => {
     }
   });
 
-  it("makes every FK BETWEEN TENANT TABLES composite and include org_id", async () => {
-    // ADR-0011.
+  it("makes EVERY FK between tenant tables composite and include org_id", async () => {
+    // ADR-0011. This assertion was WRITTEN WRONG and that is worth recording,
+    // because a test that reads as coverage while checking a subset is worse than
+    // no test at all.
     //
-    // `engagement` IS a tenant table (0001 gives it org_id and UNIQUE (org_id,id)),
-    // so `trip → engagement` is in scope and IS composite. It is listed here in
-    // FULL rather than excluded, which is what makes the assertion meaningful: a
-    // reviewer can see that no tenant FK was quietly skipped.
-    const NON_TENANT = new Set(["person", "organization"]);
-
+    // It used to scope itself to `OPERATIONS_TABLES` — a hand-maintained list of
+    // the tables 0010 happened to create. The four authorisation tables from 0001
+    // (`role_permission`, `role_scope_rule`, `role_assignment`, `role`) were not
+    // in that list, so their single-column `REFERENCES role(id)` passed this test
+    // on every run for as long as it existed. CRITICAL-1 shipped with 444 green
+    // tests. A list is only as current as the last person who remembered to add
+    // to it.
+    //
+    // So the scope is now DERIVED: a table is tenant-owned when `pg_attribute`
+    // says it carries `org_id NOT NULL`, and the assertion runs over every
+    // foreign key from every such table to every other such table. A new tenant
+    // table is in scope the moment it is created, without anybody editing a list.
+    //
+    // The two exclusions are stated rather than implied, because an exclusion
+    // nobody can see is an exclusion nobody will challenge:
+    //
+    //   * `organization` is the TENANT ROOT, not tenant-owned data. Its `id` IS
+    //     the tenant id, so `FOREIGN KEY (org_id) REFERENCES organization(id)`
+    //     is already the correct and only meaningful form — a composite version
+    //     would be `FOREIGN KEY (org_id, id) REFERENCES organization(org_id, id)`,
+    //     which says nothing. The next assertion checks those separately.
+    //   * `permission` has a NULLABLE org_id, so it is not a tenant-owned table
+    //     at all: a NULL org_id means the installation's shared vocabulary rather
+    //     than an organisation's. `role_permission → permission` is deliberately
+    //     single-column, and 0011 records why (copying one tenant's custom
+    //     permissions into a restore would collide with the destination's own).
+    //
+    // Tables with a nullable org_id are excluded by the `attnotnull` test above,
+    // which also excludes `audit_log` and `outbox_event` — correct, because
+    // nothing references them and 0011 records them as deliberately not exported.
     const found = await ownerRows<{ conrelid: string; confrelid: string; def: string }>(
-      `SELECT c.conrelid::regclass::text AS conrelid,
-              c.confrelid::regclass::text AS confrelid,
-              pg_get_constraintdef(c.oid) AS def
-         FROM pg_constraint c
-         JOIN pg_class t ON t.oid = c.conrelid
-         JOIN pg_class f ON f.oid = c.confrelid
-        WHERE c.contype = 'f'
-          AND t.relname = ANY($1)
-          AND f.relname <> ALL($2)
+      `WITH tenant_owned AS (
+         SELECT c.relname
+           FROM pg_class c
+           JOIN pg_namespace n ON n.oid = c.relnamespace
+           JOIN pg_attribute a ON a.attrelid = c.oid
+                                AND a.attname = 'org_id'
+                                AND a.attnum > 0
+                                AND a.attnotnull
+          WHERE n.nspname = 'public'
+            AND c.relkind = 'r'
+            AND c.relname <> 'organization'
+       )
+       SELECT k.conrelid::regclass::text AS conrelid,
+              k.confrelid::regclass::text AS confrelid,
+              pg_get_constraintdef(k.oid) AS def
+         FROM pg_constraint k
+         JOIN pg_class child  ON child.oid = k.conrelid
+         JOIN pg_class parent ON parent.oid = k.confrelid
+        WHERE k.contype = 'f'
+          AND child.relname  IN (SELECT relname FROM tenant_owned)
+          AND parent.relname IN (SELECT relname FROM tenant_owned)
         ORDER BY conrelid, def`,
-      [[...OPERATIONS_TABLES], [[...NON_TENANT]]],
     );
 
-    expect(found.length).toBeGreaterThan(0);
+    // A vacuous pass is the failure mode a catalogue-derived scope is most prone
+    // to, so the count is asserted rather than assumed. 80 tenant-owned tables
+    // exist today (83 carry an FK to the tenant root; `organization` itself,
+    // `schema_migration` and `platform_feature_flag` do not), and between them
+    // they declare 90 tenant-to-tenant foreign keys. Asserting a floor rather
+    // than an exact number keeps this a lower bound that a new migration can
+    // only raise, while still failing loudly if the query silently stops
+    // matching anything.
+    expect(found.length, "the derived tenant-to-tenant FK set must not be empty").toBeGreaterThanOrEqual(90);
+
     for (const row of found) {
-      // The key columns must lead with org_id and carry at least one more.
       const keyColumns = /\(([^)]*)\)\s*REFERENCES/.exec(row.def)?.[1] ?? "";
       const columns = keyColumns.split(",").map((c) => c.trim());
       expect(columns[0], `${row.conrelid} → ${row.confrelid}: ${row.def}`).toBe("org_id");
       expect(columns.length, `${row.conrelid} → ${row.confrelid}: ${row.def}`).toBeGreaterThanOrEqual(2);
+    }
+  });
+
+  it("references the tenant root on org_id alone, from every table that carries one", async () => {
+    // The companion to the assertion above, covering the case that one has to
+    // exclude. `organization.id` IS the tenant id, so the reference carries no
+    // second column to composite — but it must still be the `org_id` column.
+    //
+    // 83 tables declare this. A tenant table that reached `organization` through
+    // some other column would be a row belonging to an organisation its own
+    // column does not name, which is the same class of hole as a single-column
+    // role reference and just as invisible.
+    const offenders = await ownerRows<{ table_name: string; def: string }>(
+      `SELECT child.relname AS table_name, pg_get_constraintdef(k.oid) AS def
+         FROM pg_constraint k
+         JOIN pg_class parent    ON parent.oid = k.confrelid
+         JOIN pg_class child     ON child.oid  = k.conrelid
+        WHERE k.contype = 'f'
+          AND parent.relname = 'organization'
+        ORDER BY table_name`,
+    );
+
+    // 83 tables declare this today. Asserted rather than assumed, so a future
+    // migration cannot quietly stop pointing a tenant table at its own tenant.
+    expect(offenders.length, "the tenant-root FK set must not be empty").toBeGreaterThanOrEqual(83);
+
+    for (const row of offenders) {
+      // The ON DELETE clause differs per table (CASCADE on most, RESTRICT on
+      // audit_log), so the COLUMN LIST is what is asserted, parsed out of the
+      // rendered definition rather than matched as a whole string.
+      const keyColumns = /\(([^)]*)\)\s*REFERENCES/.exec(row.def)?.[1] ?? "";
+      expect(
+        keyColumns,
+        `${row.table_name} must reference the tenant root on org_id alone: ${row.def}`,
+      ).toBe("org_id");
+      expect(row.def, row.table_name).toContain("REFERENCES organization(id)");
     }
   });
 
