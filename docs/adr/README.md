@@ -27,6 +27,7 @@ adding a new ADR that supersedes the old one — records are never edited or del
 | [0017](0017-session-is-identity-not-tenant-scoped.md) | session is identity, not tenant-scoped; removes a policy that blocked sign-in | Accepted |
 | [0018](0018-person-is-identity-root.md) | `person` is the identity root; links to Better Auth's `user` | Accepted |
 | [0019](0019-performance-metrics-designed-not-recovered.md) | Performance metrics designed, not recovered; completes Phase 2 | Accepted |
+| [0020](0020-supabase-cli-for-schema-tooling.md) | Supabase CLI for schema tooling; relaxes ADR-0008's no-Docker rule | Accepted |
 
 ## Status vocabulary
 
