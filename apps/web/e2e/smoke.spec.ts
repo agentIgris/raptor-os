@@ -52,6 +52,45 @@ test.describe("public routes", () => {
     const unexpected = errors.filter((message) => !/Failed to load resource.*api\/auth/.test(message));
     expect(unexpected, `unexpected console errors on /sign-in:\n${unexpected.join("\n")}`).toEqual([]);
   });
+
+  test("the password visibility toggle reveals and re-hides the password", async ({ page }) => {
+    await page.goto("/sign-in");
+
+    const password = page.getByLabel("Password");
+    const toggle = page.getByRole("button", { name: "Show password" });
+    await expect(toggle).toHaveAttribute("aria-pressed", "false");
+    await expect(password).toHaveAttribute("type", "password");
+
+    await toggle.click();
+    await expect(page.getByRole("button", { name: "Hide password" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await expect(password).toHaveAttribute("type", "text");
+
+    await page.getByRole("button", { name: "Hide password" }).click();
+    await expect(page.getByRole("button", { name: "Show password" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+    await expect(password).toHaveAttribute("type", "password");
+  });
+
+  test("the theme toggle cycles system, light, dark and back", async ({ page }) => {
+    await page.goto("/");
+
+    const html = page.locator("html");
+    await expect(html).not.toHaveClass(/(\s|^)(light|dark)(\s|$)/);
+
+    await page.getByRole("button", { name: "Use light theme" }).click();
+    await expect(html).toHaveClass(/(^|\s)light(\s|$)/);
+
+    await page.getByRole("button", { name: "Use dark theme" }).click();
+    await expect(html).toHaveClass(/(^|\s)dark(\s|$)/);
+
+    await page.getByRole("button", { name: "Use system theme" }).click();
+    await expect(html).not.toHaveClass(/(\s|^)(light|dark)(\s|$)/);
+  });
 });
 
 test.describe("session guard fails closed", () => {

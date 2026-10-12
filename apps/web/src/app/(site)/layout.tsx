@@ -1,10 +1,6 @@
-import { PageFooter, PrimaryNav, SkipLink, type NavItem } from "@raptor/ui";
+import { PageFooter, SkipLink } from "@raptor/ui";
 
-const NAV: readonly NavItem[] = [
-  { href: "/", label: "Overview", current: true },
-  { href: "/dashboard", label: "Dashboard" },
-  { href: "/sign-in", label: "Sign in" },
-];
+import { SiteHeader } from "../../components/site-header";
 
 /**
  * Layout for unauthenticated routes.
@@ -28,26 +24,14 @@ export default function SiteLayout({
   return (
     <>
       <SkipLink href="#main" />
-      <header className="sticky top-0 z-40 border-b border-hairline bg-canvas">
-        <PrimaryNav
-          brand={
-            <a
-              href="/"
-              className="flex min-h-11 items-center gap-2 text-[length:var(--text-md)] font-bold tracking-[var(--tracking-tight)] text-ink no-underline"
-            >
-              <span aria-hidden="true">🦖</span>
-              Raptor&nbsp;OS
-            </a>
-          }
-          items={NAV}
-        />
-      </header>
-      <main id="main" tabIndex={-1} className="flex-1 px-4 py-8 md:px-8">
+      <SiteHeader />
+      <main id="main" tabIndex={-1} className="flex min-w-0 flex-1 flex-col">
         {children}
       </main>
       <PageFooter>
         <p>
-          Raptor OS — a multi-tenant operating system for competitive esports organisations.
+          <span translate="no">Raptor OS</span> — a multi-tenant operating system for competitive esports
+          organisations.
         </p>
       </PageFooter>
     </>

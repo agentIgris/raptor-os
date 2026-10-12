@@ -6,7 +6,9 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
+  EmptyState,
   PageHeader,
+  SectionHeading,
   Stat,
   Table,
   TableBody,
@@ -68,7 +70,7 @@ export default function DashboardPage(): React.JSX.Element {
         description="Prize position, attendance and roster movement for the current cycle."
       />
 
-      <div className="flex flex-col gap-8">
+      <div className="flex min-w-0 flex-col gap-8">
         <Alert tone={prize.variance.isZero() ? "success" : "danger"} politeness="assertive">
           <p className="text-[length:var(--text-sm)] leading-[var(--leading-normal)] font-medium">
             {prize.variance.isZero()
@@ -77,13 +79,12 @@ export default function DashboardPage(): React.JSX.Element {
           </p>
         </Alert>
 
-        <section aria-labelledby="position" className="flex flex-col gap-4">
-          <h2
+        <section aria-labelledby="position" className="flex min-w-0 flex-col gap-4">
+          <SectionHeading
             id="position"
-            className="text-[length:var(--text-xl)] leading-[var(--leading-snug)] font-semibold tracking-[var(--tracking-tight)]"
-          >
-            Prize position
-          </h2>
+            title="Prize position"
+            description="Gross, deductions, tax, and the net the allocation divides."
+          />
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Stat label="Gross" value={formatMoney(prize.gross)} hint={`${prize.currency}, as received.`} />
             <Stat label="Deductions" value={formatMoney(prize.deductions)} hint="Withheld by the organiser." />
@@ -92,13 +93,18 @@ export default function DashboardPage(): React.JSX.Element {
           </div>
         </section>
 
-        <section aria-labelledby="allocation-heading" className="flex flex-col gap-4">
-          <h2
+        <section aria-labelledby="allocation-heading" className="flex min-w-0 flex-col gap-4">
+          <SectionHeading
             id="allocation-heading"
-            className="text-[length:var(--text-xl)] leading-[var(--leading-snug)] font-semibold tracking-[var(--tracking-tight)]"
-          >
-            Allocation
-          </h2>
+            title="Allocation"
+            description="One row per participant share, frozen at compute time."
+          />
+          {prize.allocations.length === 0 ? (
+            <EmptyState
+              title="No allocations yet"
+              description="Allocations appear once the prize pool is computed for this cycle."
+            />
+          ) : (
           <Table label="Prize allocation">
             <TableCaption>
               One row per participant share. Largest-remainder distribution, frozen at compute
@@ -114,27 +120,33 @@ export default function DashboardPage(): React.JSX.Element {
             <TableBody>
               {prize.allocations.map((row) => (
                 <TableRow key={row.id}>
-                  <TableCell scope="row" className="font-medium">
+                  <TableRowHeader>
                     {row.label}
-                  </TableCell>
+                  </TableRowHeader>
                   <TableCell className="tabular-nums">{formatMoney(row.computed)}</TableCell>
-                  <TableCell className="font-mono text-[length:var(--text-xs)] text-ink-muted">
+                  <TableCell className="font-mono text-[length:var(--text-xs)] break-all text-ink-muted" translate="no">
                     {row.ruleVersion}
                   </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
+          )}
         </section>
 
-        <section aria-labelledby="roster-heading" className="flex flex-col gap-4">
-          <h2
+        <section aria-labelledby="roster-heading" className="flex min-w-0 flex-col gap-4">
+          <SectionHeading
             id="roster-heading"
-            className="text-[length:var(--text-xl)] leading-[var(--leading-snug)] font-semibold tracking-[var(--tracking-tight)]"
-          >
-            Roster
-          </h2>
+            title="Roster"
+            description="Attendance and tier movement for every rostered player."
+          />
 
+          {roster.length === 0 ? (
+            <EmptyState
+              title="No rostered players"
+              description="Players appear here once they are added to the organisation."
+            />
+          ) : (
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
             <Stat
               label="Attendance this session"
@@ -142,7 +154,7 @@ export default function DashboardPage(): React.JSX.Element {
               hint={`${present} of ${roster.length} arrived inside the 15-minute cutoff.`}
             />
 
-            <Card labelledBy="attendance-card-heading" className="lg:col-span-2">
+            <Card labelledBy="attendance-card-heading" className="min-w-0 lg:col-span-2">
               <CardHeader>
                 <CardTitle id="attendance-card-heading">Attendance and movement</CardTitle>
                 <CardDescription>
@@ -167,7 +179,7 @@ export default function DashboardPage(): React.JSX.Element {
                   <TableBody>
                     {roster.map((player) => (
                       <TableRow key={player.handle}>
-                        <TableRowHeader>{player.handle}</TableRowHeader>
+                        <TableRowHeader translate="no">{player.handle}</TableRowHeader>
                         <TableCell>
                           <Badge tone={TONE_BY_ATTENDANCE[player.attendance]}>
                             {player.attendance}
@@ -175,7 +187,7 @@ export default function DashboardPage(): React.JSX.Element {
                         </TableCell>
                         <TableCell>
                           <Badge tone={TONE_BY_MOVEMENT[player.movement]}>
-                            {player.previousTier} → {player.newTier}
+                            <span translate="no">{player.previousTier} → {player.newTier}</span>
                           </Badge>
                         </TableCell>
                         <TableCell className="tabular-nums">{player.winRatePercent}%</TableCell>
@@ -186,6 +198,7 @@ export default function DashboardPage(): React.JSX.Element {
               </CardContent>
             </Card>
           </div>
+          )}
         </section>
       </div>
     </>

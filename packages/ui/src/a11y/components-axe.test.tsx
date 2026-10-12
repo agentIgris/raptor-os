@@ -29,7 +29,7 @@ import { Button } from "../components/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/card";
 import { Main, PageFooter, PageHeader, SkipLink } from "../components/app-shell";
 import { PrimaryNav } from "../components/primary-nav";
-import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeaderCell, TableRow } from "../components/table";
+import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeaderCell, TableRow, TableRowHeader } from "../components/table";
 import { TextField } from "../components/text-field";
 
 const TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
@@ -187,7 +187,7 @@ describe("axe-core over the primitive set", () => {
           </TableHead>
           <TableBody>
             <TableRow>
-              <TableCell scope="row">kirra</TableCell>
+              <TableRowHeader>kirra</TableRowHeader>
               <TableCell>
                 <Badge tone="success">present</Badge>
               </TableCell>

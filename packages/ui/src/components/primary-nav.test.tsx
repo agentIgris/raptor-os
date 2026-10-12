@@ -159,3 +159,11 @@ describe("PrimaryNav — target sizes", () => {
     expect(toggle().className).toContain("min-w-11");
   });
 });
+
+describe("PrimaryNav — header actions", () => {
+  it("renders persistent actions alongside the disclosure button", () => {
+    render(<PrimaryNav items={ITEMS} actions={<button type="button">Theme</button>} />);
+    expect(screen.getByRole("button", { name: "Theme" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /main menu/i })).toBeInTheDocument();
+  });
+});

@@ -7,7 +7,9 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
+  EmptyState,
   PageHeader,
+  SectionHeading,
   Stat,
   Table,
   TableBody,
@@ -95,14 +97,13 @@ export default function OverviewPage(): React.JSX.Element {
         }
       />
 
-      <div className="flex flex-col gap-8">
-        <section aria-labelledby="what-it-is" className="flex flex-col gap-4">
-          <h2
+      <div className="flex min-w-0 flex-col gap-8">
+        <section aria-labelledby="what-it-is" className="flex min-w-0 flex-col gap-4">
+          <SectionHeading
             id="what-it-is"
-            className="text-[length:var(--text-xl)] leading-[var(--leading-snug)] font-semibold tracking-[var(--tracking-tight)]"
-          >
-            What it does
-          </h2>
+            title="What it does"
+            description="One ledger for prize money, sponsor obligations, and the roster they belong to."
+          />
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <Stat
               label="Prize pool, illustrative"
@@ -122,24 +123,29 @@ export default function OverviewPage(): React.JSX.Element {
           </div>
         </section>
 
-        <section aria-labelledby="allocation" className="flex flex-col gap-4">
-          <h2
+        <section aria-labelledby="allocation" className="flex min-w-0 flex-col gap-4">
+          <SectionHeading
             id="allocation"
-            className="text-[length:var(--text-xl)] leading-[var(--leading-snug)] font-semibold tracking-[var(--tracking-tight)]"
-          >
-            Prize allocation
-          </h2>
+            title="Prize allocation"
+            description="Largest-remainder distribution across every share of the net pool."
+          />
           <Alert tone="info">
             <p className="text-[length:var(--text-sm)] leading-[var(--leading-normal)] font-medium">
               Illustrative figures.
             </p>
             <p className="text-[length:var(--text-sm)] leading-[var(--leading-normal)]">
-              These are computed by <code className="font-mono">@raptor/core</code> from a fixture
+              These are computed by <code className="font-mono" translate="no">@raptor/core</code> from a fixture
               prize pool so the money path is exercised end to end. They are not a customer&rsquo;s
               money.
             </p>
           </Alert>
 
+          {prize.allocations.length === 0 ? (
+            <EmptyState
+              title="No allocations yet"
+              description="Allocations appear once the prize pool is computed for this cycle."
+            />
+          ) : (
           <Table label="Prize allocation preview">
             <TableCaption>
               Allocation by basis, with the indivisible remainder distributed by largest remainder.
@@ -158,23 +164,29 @@ export default function OverviewPage(): React.JSX.Element {
                   <TableRowHeader>{row.label}</TableRowHeader>
                   <TableCell className="tabular-nums">{String(row.participants)}</TableCell>
                   <TableCell className="tabular-nums">{formatMoney(row.computed)}</TableCell>
-                  <TableCell className="font-mono text-[length:var(--text-xs)] text-ink-muted">
+                  <TableCell className="font-mono text-[length:var(--text-xs)] break-all text-ink-muted" translate="no">
                     {row.ruleVersion}
                   </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
+          )}
         </section>
 
-        <section aria-labelledby="roster" className="flex flex-col gap-4">
-          <h2
+        <section aria-labelledby="roster" className="flex min-w-0 flex-col gap-4">
+          <SectionHeading
             id="roster"
-            className="text-[length:var(--text-xl)] leading-[var(--leading-snug)] font-semibold tracking-[var(--tracking-tight)]"
-          >
-            Roster and tier movement
-          </h2>
+            title="Roster and tier movement"
+            description="Attendance from recorded arrivals; tiers from win rate. Neither is self-declared."
+          />
 
+          {roster.length === 0 ? (
+            <EmptyState
+              title="No rostered players"
+              description="Players appear here once they are added to the organisation."
+            />
+          ) : (
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <Card labelledBy="attendance-heading">
               <CardHeader>
@@ -188,9 +200,9 @@ export default function OverviewPage(): React.JSX.Element {
                   {roster.map((player) => (
                     <li
                       key={player.handle}
-                      className="flex flex-wrap items-center justify-between gap-3"
+                      className="flex min-w-0 flex-wrap items-center justify-between gap-3"
                     >
-                      <span className="text-[length:var(--text-sm)] font-medium">{player.handle}</span>
+                      <span className="min-w-0 text-[length:var(--text-sm)] font-medium break-words" translate="no">{player.handle}</span>
                       <Badge tone={TONE_BY_ATTENDANCE[player.attendance]}>
                         {player.attendance}
                       </Badge>
@@ -212,11 +224,11 @@ export default function OverviewPage(): React.JSX.Element {
                   {roster.map((player) => (
                     <li
                       key={player.handle}
-                      className="flex flex-wrap items-center justify-between gap-3"
+                      className="flex min-w-0 flex-wrap items-center justify-between gap-3"
                     >
-                      <span className="text-[length:var(--text-sm)]">
-                        {player.handle}{" "}
-                        <span className="text-ink-muted">
+                      <span className="min-w-0 text-[length:var(--text-sm)] break-words">
+                        <span translate="no">{player.handle}</span>{" "}
+                        <span className="text-ink-muted" translate="no">
                           ({player.previousTier} → {player.newTier})
                         </span>
                       </span>
@@ -229,6 +241,7 @@ export default function OverviewPage(): React.JSX.Element {
               </CardContent>
             </Card>
           </div>
+          )}
         </section>
       </div>
     </>

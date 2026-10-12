@@ -138,7 +138,16 @@ export function TableRowHeader({
   );
 }
 
-export function TableCell({ className, ...props }: React.ComponentProps<"td">): React.JSX.Element {
+/**
+ * A data cell — the `<td>` that holds a value.
+ *
+ * `scope` is deliberately OMITTED from the props. `scope` is only valid on a
+ * `<th>`; spreading it onto a `<td>` renders identically, produces a table
+ * that looks correct in a screenshot, and is announced as an ordinary cell.
+ * The dashboard shipped exactly that mistake once. Row names use
+ * `TableRowHeader`.
+ */
+export function TableCell({ className, ...props }: Omit<React.ComponentProps<"td">, "scope">): React.JSX.Element {
   return <td className={cn("px-4 py-3 align-middle text-ink", className)} {...props} />;
 }
 

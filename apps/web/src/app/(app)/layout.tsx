@@ -1,14 +1,9 @@
-import { Badge, PageFooter, PrimaryNav, SkipLink, type NavItem } from "@raptor/ui";
+import { PageFooter, SkipLink } from "@raptor/ui";
 import { redirect } from "next/navigation";
 import * as React from "react";
 
+import { AppHeader } from "../../components/app-header";
 import { getCurrentSession } from "../../server/session";
-
-const NAV: readonly NavItem[] = [
-  { href: "/dashboard", label: "Dashboard", current: true },
-  { href: "/", label: "Overview" },
-  { href: "/sign-in", label: "Sign in" },
-];
 
 /**
  * Layout for authenticated routes.
@@ -37,39 +32,9 @@ export default async function AppLayout({
   return (
     <>
       <SkipLink href="#main" />
-      <header className="sticky top-0 z-40 border-b border-hairline bg-canvas">
-        <PrimaryNav
-          brand={
-            <a
-              href="/dashboard"
-              className="flex min-h-11 items-center gap-2 text-[length:var(--text-md)] font-bold tracking-[var(--tracking-tight)] text-ink no-underline"
-            >
-              <span aria-hidden="true">🦖</span>
-              Raptor&nbsp;OS
-            </a>
-          }
-          items={NAV}
-        />
-        {/*
-          Session summary.
+      <AppHeader email={session.email} role={session.role} twoFactorEnabled={session.twoFactorEnabled} />
 
-          Rendered as text, not as a badge colour, and the two facts a support
-          engineer needs are both present: the role (which decides what the user
-          may do) and whether MFA is enrolled (which is what locks privileged
-          roles out). No token, no session id, no cookie value — there is
-          nothing here that should be read out over the user's shoulder, and
-          nothing that would be dangerous in a screenshot.
-        */}
-        <p className="flex flex-wrap items-center gap-2 border-t border-hairline px-4 py-2 text-[length:var(--text-xs)] text-ink-muted md:px-6">
-          <span>{session.email}</span>
-          <Badge tone={session.role === "pending" ? "warning" : "accent"}>{session.role}</Badge>
-          <Badge tone={session.twoFactorEnabled ? "success" : "neutral"}>
-            {session.twoFactorEnabled ? "MFA enrolled" : "MFA not enrolled"}
-          </Badge>
-        </p>
-      </header>
-
-      <main id="main" tabIndex={-1} className="flex-1 px-4 py-8 md:px-8">
+      <main id="main" tabIndex={-1} className="flex min-w-0 flex-1 flex-col">
         {children}
       </main>
 

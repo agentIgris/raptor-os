@@ -4,12 +4,21 @@ import * as React from "react";
 import "./globals.css";
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://raptor-os.example"),
   title: {
     default: "Raptor OS",
     template: "%s · Raptor OS",
   },
   description:
     "One system of record for a competitive esports organisation: prize allocation, sponsor obligations, rosters and money.",
+  applicationName: "Raptor OS",
+  robots: { index: false, follow: false },
+  openGraph: {
+    title: "Raptor OS",
+    description:
+      "Prize allocation, sponsor deliverables, rosters and contracts for a competitive esports organisation.",
+    type: "website",
+  },
 };
 
 export const viewport: Viewport = {

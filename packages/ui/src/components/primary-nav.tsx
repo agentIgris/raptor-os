@@ -19,6 +19,8 @@ export interface PrimaryNavProps {
   readonly items: readonly NavItem[];
   /** Visible on wide viewports. Hidden behind the toggle below `md`. */
   readonly brand?: React.ReactNode;
+  /** Persistent header utilities (theme toggle, sign-out). Always visible. */
+  readonly actions?: React.ReactNode;
 }
 
 /**
@@ -41,7 +43,7 @@ export interface PrimaryNavProps {
  * `hidden`, which takes it out of the tab order — `display: none` on a
  * focusable element removes it from sequential focus.
  */
-export function PrimaryNav({ items, brand }: PrimaryNavProps): React.JSX.Element {
+export function PrimaryNav({ items, brand, actions }: PrimaryNavProps): React.JSX.Element {
   const [open, setOpen] = React.useState(false);
   // Deterministic across server and client render. `useId` is used rather than
   // a counter because two navs on one page must not collide.
@@ -49,8 +51,9 @@ export function PrimaryNav({ items, brand }: PrimaryNavProps): React.JSX.Element
 
   const itemClass = (item: NavItem): string =>
     cn(
-      "flex min-h-11 items-center rounded-md px-3 py-2",
+      "flex min-h-11 touch-manipulation items-center rounded-md px-3 py-2",
       "text-[length:var(--text-sm)] font-medium",
+      "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-standard)]",
       item.current === true
         ? "bg-accent-soft text-accent"
         : "text-ink-muted hover:bg-sunken hover:text-ink",
@@ -61,36 +64,40 @@ export function PrimaryNav({ items, brand }: PrimaryNavProps): React.JSX.Element
       <div className="flex items-center justify-between gap-4 px-4 py-3 md:px-6">
         {brand}
 
-        <button
-          type="button"
-          aria-expanded={open}
-          aria-controls={panelId}
-          onClick={() => {
-            setOpen((was) => !was);
-          }}
-          className={cn(
-            "inline-flex min-h-11 min-w-11 items-center justify-center rounded-md",
-            "border border-control bg-canvas text-ink",
-            "md:hidden",
-          )}
-        >
-          <span className="sr-only">{open ? "Close main menu" : "Open main menu"}</span>
-          {/* Decorative: the button's accessible name comes from the sr-only
-              text, so the glyph must not be announced as well. */}
-          <svg
-            aria-hidden="true"
-            focusable="false"
-            viewBox="0 0 24 24"
-            width="20"
-            height="20"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
+        <div className="flex items-center gap-2">
+          {actions}
+          <button
+            type="button"
+            aria-expanded={open}
+            aria-controls={panelId}
+            onClick={() => {
+              setOpen((was) => !was);
+            }}
+            className={cn(
+              "inline-flex min-h-11 min-w-11 cursor-pointer touch-manipulation items-center justify-center rounded-md",
+              "border border-control bg-canvas text-ink",
+              "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-standard)] hover:bg-sunken",
+              "md:hidden",
+            )}
           >
-            {open ? <path d="M6 6l12 12M18 6L6 18" /> : <path d="M4 7h16M4 12h16M4 17h16" />}
-          </svg>
-        </button>
+            <span className="sr-only">{open ? "Close main menu" : "Open main menu"}</span>
+            {/* Decorative: the button's accessible name comes from the sr-only
+                text, so the glyph must not be announced as well. */}
+            <svg
+              aria-hidden="true"
+              focusable="false"
+              viewBox="0 0 24 24"
+              width="20"
+              height="20"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+            >
+              {open ? <path d="M6 6l12 12M18 6L6 18" /> : <path d="M4 7h16M4 12h16M4 17h16" />}
+            </svg>
+          </button>
+        </div>
       </div>
 
       <ul

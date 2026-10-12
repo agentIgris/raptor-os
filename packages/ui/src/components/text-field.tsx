@@ -56,6 +56,7 @@ export const TextField = React.forwardRef<HTMLInputElement, TextFieldProps>(func
   const controlId = cn(
     "min-h-11 w-full rounded-md border border-control bg-canvas px-3",
     "text-[length:var(--text-sm)] text-ink placeholder:text-ink-faint",
+    "touch-manipulation",
     "disabled:cursor-not-allowed disabled:bg-sunken disabled:text-ink-muted",
     error === undefined ? undefined : "border-danger",
     className,

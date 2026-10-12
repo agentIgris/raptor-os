@@ -73,6 +73,8 @@ export function SignInForm({ callbackUrl }: SignInFormProps): React.JSX.Element 
   const router = useRouter();
   const [pending, setPending] = React.useState(false);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
+  const [showPassword, setShowPassword] = React.useState(false);
+  const errorRef = React.useRef<HTMLDivElement>(null);
 
   const onSubmit = async (event: React.FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
@@ -109,12 +111,20 @@ export function SignInForm({ callbackUrl }: SignInFormProps): React.JSX.Element 
     }
   };
 
+  // Move focus to the error when it appears, so keyboard and screen-reader
+  // users land on the message instead of having to hunt for what changed.
+  React.useEffect(() => {
+    if (errorMessage !== null) errorRef.current?.focus();
+  }, [errorMessage]);
+
   return (
-    <form onSubmit={(event) => { void onSubmit(event); }} className="flex flex-col gap-6" noValidate={false}>
+    <form onSubmit={(event) => { void onSubmit(event); }} className="flex min-w-0 flex-col gap-6" noValidate={false}>
       {errorMessage === null ? null : (
-        <Alert tone="danger" politeness="assertive">
-          <p className="text-[length:var(--text-sm)] leading-[var(--leading-normal)] font-medium">{errorMessage}</p>
-        </Alert>
+        <div ref={errorRef} tabIndex={-1}>
+          <Alert tone="danger" politeness="assertive">
+            <p className="text-[length:var(--text-sm)] leading-[var(--leading-normal)] font-medium">{errorMessage}</p>
+          </Alert>
+        </div>
       )}
 
       <TextField
@@ -124,20 +134,39 @@ export function SignInForm({ callbackUrl }: SignInFormProps): React.JSX.Element 
         label="Email address"
         autoComplete="email"
         inputMode="email"
+        spellCheck={false}
+        placeholder="you@organisation.gg…"
         required
       />
 
-      <TextField
-        id="sign-in-password"
-        name="password"
-        type="password"
-        label="Password"
-        autoComplete="current-password"
-        hint="At least 12 characters."
-        required
-      />
+      <div className="flex min-w-0 flex-col gap-2">
+        <TextField
+          id="sign-in-password"
+          name="password"
+          type={showPassword ? "text" : "password"}
+          label="Password"
+          autoComplete="current-password"
+          spellCheck={false}
+          placeholder="Your 12+ character password…"
+          hint="At least 12 characters."
+          required
+        />
+        <div>
+          <button
+            type="button"
+            aria-pressed={showPassword}
+            aria-controls="sign-in-password"
+            onClick={() => {
+              setShowPassword((was) => !was);
+            }}
+            className="inline-flex min-h-11 cursor-pointer touch-manipulation items-center rounded-md px-3 py-2 text-[length:var(--text-sm)] font-medium text-ink-muted underline underline-offset-4 transition-colors duration-[var(--duration-fast)] ease-[var(--ease-standard)] hover:bg-sunken hover:text-ink"
+          >
+            {showPassword ? "Hide password" : "Show password"}
+          </button>
+        </div>
+      </div>
 
-      <Button type="submit" size="lg" disabled={pending} aria-busy={pending}>
+      <Button type="submit" size="lg" disabled={pending} aria-busy={pending} className="w-full">
         {pending ? "Signing in…" : "Sign in"}
       </Button>
 
@@ -150,7 +179,7 @@ export function SignInForm({ callbackUrl }: SignInFormProps): React.JSX.Element 
         state change explicitly, and it is `role="status"` so it does not
         interrupt.
       */}
-      <p role="status" aria-live="polite" className="text-[length:var(--text-sm)] text-ink-muted">
+      <p role="status" aria-live="polite" className="min-h-6 text-[length:var(--text-sm)] break-words text-ink-muted">
         {pending ? "Signing in. This can take a few seconds." : ""}
       </p>
     </form>

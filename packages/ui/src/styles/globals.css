@@ -198,6 +198,40 @@
        text containers are what make that possible; this rule is the backstop
        for anything that tries. */
     text-size-adjust: 100%;
+    /* Long identifiers (rule versions, handles, money strings) must wrap
+       rather than force horizontal page scroll at 320px. */
+    overflow-wrap: break-word;
+    /* Remove the 300ms tap delay on touch devices. */
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Interactive elements respond immediately on touch and show a pointer. */
+  :where(a, button, [role="button"], summary) {
+    touch-action: manipulation;
+  }
+
+  :where(button, [role="button"], summary) {
+    cursor: pointer;
+  }
+
+  :where(button:disabled, [aria-disabled="true"]) {
+    cursor: not-allowed;
+  }
+
+  /* Fragment targets clear the sticky header (see scroll-padding-top above)
+     even when linked from within the page. */
+  :where([id]):target {
+    scroll-margin-top: var(--space-16);
+  }
+
+  /* Future dialogs/drawers: contain scroll chaining and respect notches. */
+  :where([role="dialog"], [role="alertdialog"]) {
+    overscroll-behavior: contain;
+  }
+
+  ::selection {
+    background-color: var(--accent-base);
+    color: var(--text-on-accent);
   }
 
   /*

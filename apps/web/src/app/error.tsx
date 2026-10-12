@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from "@raptor/ui";
+import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle } from "@raptor/ui";
 import * as React from "react";
 
 /**
@@ -27,32 +27,50 @@ export default function ErrorBoundary({
 }): React.JSX.Element {
   const [retrying, setRetrying] = React.useState(false);
 
+  // If the retry itself fails, the boundary re-renders with the same error and
+  // this component stays mounted with `retrying` stuck on. Re-arm the button
+  // when the error identity changes so the user is never left with a disabled
+  // control and no way forward.
+  const digest = error.digest;
+  React.useEffect(() => {
+    setRetrying(false);
+  }, [digest]);
+
   return (
-    <div className="mx-auto flex w-full max-w-[40rem] flex-col gap-4 py-8">
-      <h1 className="text-[length:var(--text-2xl)] leading-[var(--leading-tight)] font-bold tracking-[var(--tracking-tight)]">
-        Something went wrong
-      </h1>
-      <p className="text-[length:var(--text-sm)] leading-[var(--leading-normal)] text-ink-muted">
-        This request could not be completed. Nothing was changed. Retrying is safe.
-      </p>
-      {error.digest === undefined ? null : (
-        <p className="font-mono text-[length:var(--text-xs)] text-ink-faint">
-          Reference: {error.digest}
-        </p>
-      )}
-      <div>
-        <Button
-          type="button"
-          disabled={retrying}
-          aria-busy={retrying}
-          onClick={() => {
-            setRetrying(true);
-            reset();
-          }}
-        >
-          {retrying ? "Retrying…" : "Try again"}
-        </Button>
-      </div>
+    <div className="mx-auto flex w-full max-w-[40rem] min-w-0 flex-col gap-6 py-8">
+      <Card labelledBy="error-heading">
+        <CardHeader>
+          <CardTitle id="error-heading" className="text-balance">
+            Something went wrong
+          </CardTitle>
+          <CardDescription>
+            This request could not be completed. Nothing was changed. Retrying is safe.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex min-w-0 flex-col gap-4">
+          {error.digest === undefined ? null : (
+            <p className="font-mono text-[length:var(--text-xs)] break-all text-ink-faint" translate="no">
+              Reference: {error.digest}
+            </p>
+          )}
+          <div className="flex flex-wrap items-center gap-3">
+            <Button
+              type="button"
+              disabled={retrying}
+              aria-busy={retrying}
+              onClick={() => {
+                setRetrying(true);
+                reset();
+              }}
+            >
+              {retrying ? "Retrying…" : "Try again"}
+            </Button>
+            <Button asChild variant="outline">
+              <a href="/">Back to the overview</a>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

@@ -19,6 +19,7 @@ export const buttonVariants = cva(
   [
     "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md",
     "font-medium leading-tight",
+    "cursor-pointer touch-manipulation",
     // Every size is at least 44px tall. WCAG 2.5.8 (AA, new in 2.2) asks for
     // 24x24; 44 is 2.5.5 (AAA) and is the number that actually survives a
     // thumb on a phone at a tournament. Every size clears it, not just the

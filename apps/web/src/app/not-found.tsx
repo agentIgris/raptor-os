@@ -1,9 +1,10 @@
-import { Button } from "@raptor/ui";
+import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle } from "@raptor/ui";
 import type { Metadata } from "next";
 import * as React from "react";
 
 export const metadata: Metadata = {
   title: "Not found",
+  description: "The requested page does not exist in this workspace.",
 };
 
 /**
@@ -15,18 +16,28 @@ export const metadata: Metadata = {
  */
 export default function NotFound(): React.JSX.Element {
   return (
-    <div className="mx-auto flex w-full max-w-[40rem] flex-col gap-4 py-12">
-      <h1 className="text-[length:var(--text-2xl)] leading-[var(--leading-tight)] font-bold tracking-[var(--tracking-tight)]">
-        Page not found
-      </h1>
-      <p className="text-[length:var(--text-sm)] leading-[var(--leading-normal)] text-ink-muted">
-        That address does not exist in this organisation&rsquo;s workspace.
-      </p>
-      <div>
-        <Button asChild>
-          <a href="/">Back to the overview</a>
-        </Button>
-      </div>
+    <div className="mx-auto flex w-full max-w-[40rem] min-w-0 flex-col gap-6 py-12">
+      <Card labelledBy="not-found-heading">
+        <CardHeader>
+          <CardTitle id="not-found-heading" className="text-balance">
+            Page not found
+          </CardTitle>
+          <CardDescription>
+            That address does not exist in this organisation&rsquo;s workspace. It may have been
+            moved, or the link may be wrong.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex min-w-0 flex-col gap-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <Button asChild>
+              <a href="/">Back to the overview</a>
+            </Button>
+            <Button asChild variant="outline">
+              <a href="/sign-in">Sign in</a>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

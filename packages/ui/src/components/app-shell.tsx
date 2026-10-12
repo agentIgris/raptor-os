@@ -74,32 +74,30 @@ export function PageHeader({
 }: PageHeaderProps): React.JSX.Element {
   return (
     <header
-      className={cn(
-        "flex flex-col gap-3 border-b border-hairline bg-canvas",
-        "px-4 py-6 md:px-8",
-        className,
-      )}
+      className={cn("border-b border-hairline bg-canvas", className)}
       {...props}
     >
-      {eyebrow === undefined ? null : (
-        <p className="text-[length:var(--text-xs)] font-semibold tracking-[var(--tracking-wide)] text-ink-faint uppercase">
-          {eyebrow}
-        </p>
-      )}
-      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <div className="flex flex-col gap-2">
-          <h1 className="text-[length:var(--text-2xl)] leading-[var(--leading-tight)] font-bold tracking-[var(--tracking-tight)] text-ink">
-            {title}
-          </h1>
-          {description === undefined ? null : (
-            <p className="max-w-prose text-[length:var(--text-sm)] leading-[var(--leading-normal)] text-ink-muted">
-              {description}
-            </p>
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-3 px-4 py-6 md:px-8 md:py-8">
+        {eyebrow === undefined ? null : (
+          <p className="text-[length:var(--text-xs)] font-semibold tracking-[var(--tracking-wide)] text-ink-faint uppercase">
+            {eyebrow}
+          </p>
+        )}
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div className="flex min-w-0 flex-col gap-2">
+            <h1 className="max-w-prose text-balance text-[length:var(--text-2xl)] leading-[var(--leading-tight)] font-bold tracking-[var(--tracking-tight)] break-words text-ink">
+              {title}
+            </h1>
+            {description === undefined ? null : (
+              <p className="max-w-prose text-pretty text-[length:var(--text-sm)] leading-[var(--leading-normal)] break-words text-ink-muted">
+                {description}
+              </p>
+            )}
+          </div>
+          {actions === undefined ? null : (
+            <div className="flex flex-wrap items-center gap-3">{actions}</div>
           )}
         </div>
-        {actions === undefined ? null : (
-          <div className="flex flex-wrap items-center gap-3">{actions}</div>
-        )}
       </div>
     </header>
   );
@@ -118,7 +116,12 @@ export function Main({
   ...props
 }: React.ComponentProps<"main">): React.JSX.Element {
   return (
-    <main id="main" tabIndex={-1} className={cn("flex-1 px-4 py-6 md:px-8", className)} {...props}>
+    <main
+      id="main"
+      tabIndex={-1}
+      className={cn("mx-auto w-full max-w-6xl min-w-0 flex-1 px-4 py-6 md:px-8 md:py-8", className)}
+      {...props}
+    >
       {children}
     </main>
   );
@@ -127,14 +130,10 @@ export function Main({
 /** The `<footer>` (contentinfo) landmark. */
 export function PageFooter({ className, children, ...props }: React.ComponentProps<"footer">): React.JSX.Element {
   return (
-    <footer
-      className={cn(
-        "border-t border-hairline px-4 py-6 text-[length:var(--text-sm)] text-ink-muted md:px-8",
-        className,
-      )}
-      {...props}
-    >
-      {children}
+    <footer className={cn("border-t border-hairline", className)} {...props}>
+      <div className="mx-auto w-full max-w-6xl px-4 py-6 text-[length:var(--text-sm)] break-words text-ink-muted md:px-8">
+        {children}
+      </div>
     </footer>
   );
 }
@@ -152,15 +151,15 @@ export function Stat({
   readonly children?: React.ReactNode;
 }): React.JSX.Element {
   return (
-    <div className="flex flex-col gap-1 rounded-lg border border-hairline bg-raised p-4">
-      <p className="text-[length:var(--text-xs)] font-semibold tracking-[var(--tracking-wide)] text-ink-faint uppercase">
+    <div className="flex min-w-0 flex-col gap-1 rounded-lg border border-hairline bg-raised p-4 shadow-[var(--shadow-xs)]">
+      <p className="text-[length:var(--text-xs)] font-semibold tracking-[var(--tracking-wide)] break-words text-ink-faint uppercase">
         {label}
       </p>
-      <p className="text-[length:var(--text-2xl)] leading-[var(--leading-tight)] font-bold tracking-[var(--tracking-tight)] tabular-nums text-ink">
+      <p className="text-[length:var(--text-2xl)] leading-[var(--leading-tight)] font-bold tracking-[var(--tracking-tight)] break-words tabular-nums text-ink">
         {value}
       </p>
       {hint === undefined ? null : (
-        <p className="text-[length:var(--text-xs)] leading-[var(--leading-normal)] text-ink-muted">{hint}</p>
+        <p className="text-[length:var(--text-xs)] leading-[var(--leading-normal)] break-words text-ink-muted">{hint}</p>
       )}
       {children}
     </div>
