@@ -20,6 +20,7 @@
  */
 
 import { logger, readiness, type DependencyProbe } from "@raptor/observability";
+import { tlsOptionsForDatabaseUrl } from "@raptor/auth";
 import { Pool } from "pg";
 
 import { tryGetAuth } from "../../../server/auth";
@@ -53,12 +54,22 @@ function databaseProbe(): DependencyProbe {
   return {
     name: "postgres",
     check: async () => {
-      pool ??= new Pool({
-        connectionString: process.env["DATABASE_URL"] ?? "postgresql://raptor_app@127.0.0.1:5432/raptor_os",
-        max: 2,
-        connectionTimeoutMillis: 2_000,
-        application_name: "raptor_readiness",
-      });
+      pool ??= (() => {
+        const raw =
+          process.env["DATABASE_URL"] ?? "postgresql://raptor_app@127.0.0.1:5432/raptor_os";
+        const resolved = tlsOptionsForDatabaseUrl(raw);
+        return new Pool({
+          connectionString: resolved.connectionString,
+          max: 2,
+          connectionTimeoutMillis: 2_000,
+          application_name: "raptor_readiness",
+          // Same TLS rule as the auth pool, from the same function: two pools
+          // with two TLS behaviors is how one of them silently stops verifying.
+          // `tlsOptionsForDatabaseUrl` returns no `ssl` key for ordinary URLs,
+          // so local development against plain Postgres is unaffected.
+          ...(resolved.ssl === undefined ? {} : { ssl: resolved.ssl }),
+        });
+      })();
 
       // A pool with no `error` listener throws an unhandled `'error'` event the
       // moment an idle backend dies, which crashes the process — turning a

@@ -79,9 +79,21 @@ function createNonce(): string {
  * for a materially smaller risk than the script one.
  */
 export function buildContentSecurityPolicy(nonce: string): string {
+  // `'unsafe-eval'` in development ONLY. Next.js Fast Refresh evaluates
+  // compiled modules as strings, so the dev server cannot hydrate without it —
+  // without hydration the sign-in form degrades to a native GET submit, which
+  // puts the password in the URL query string (browser history, server logs).
+  // Production builds (`next build`) contain no eval, so the production policy
+  // omits it. `csp.test.ts` asserts the production policy never contains the
+  // token: a development convenience that leaks into production is how a CSP
+  // becomes decorative.
+  const scriptSrc =
+    process.env["NODE_ENV"] === "production"
+      ? `script-src 'self' 'nonce-${nonce}'`
+      : `script-src 'self' 'nonce-${nonce}' 'unsafe-eval'`;
   return [
     "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}'`,
+    scriptSrc,
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob:",
     "font-src 'self'",

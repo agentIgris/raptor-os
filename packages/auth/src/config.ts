@@ -1028,14 +1028,72 @@ export function buildAuthOptions(env: AuthEnv, database: AuthDatabase): BetterAu
  * concurrent request, and an unbounded pool against a local Postgres is how a
  * sign-in burst becomes a connection-exhaustion outage.
  */
+/**
+ * Connection options for a `pg` pool pointed at the given connection string.
+ *
+ * Single home for the managed-pooler exception, shared by the auth pool and
+ * the readiness probe: two pools with two TLS behaviors is how one of them
+ * silently stops verifying.
+ *
+ * TWO things are returned, and both matter:
+ *
+ * 1. `ssl`: `{ rejectUnauthorized: false }` ONLY when the URL carries
+ *    `sslmode=require`, otherwise absent (verify by default).
+ * 2. `connectionString` with any `sslmode` parameter STRIPPED.
+ *
+ * The stripping is load-bearing, not cosmetic. Measured against pg 8.23.1: a
+ * `sslmode` query parameter in the URL OVERRIDES the explicit `ssl` object —
+ * `sslmode=require` plus `ssl: { rejectUnauthorized: false }` still fails with
+ * `self-signed certificate in certificate chain`, while the same `ssl` object
+ * with no `sslmode` in the URL connects. So setting the option without
+ * removing the parameter is a fix that does nothing, and it fails in the exact
+ * way that reads as "TLS is broken" rather than "the URL won".
+ *
+ * Production MUST terminate with a verifiable chain: pin the provider CA or
+ * connect over a private network. A test fails if this exception is ever
+ * widened beyond an explicit opt-in per connection string.
+ */
+export function tlsOptionsForDatabaseUrl(connectionString: string): {
+  connectionString: string;
+  ssl?: { rejectUnauthorized: boolean };
+} {
+  // Parsed with URL, not regex: stripping one query parameter with a pattern
+  // leaves `?&` or trailing separators in the cases the pattern did not
+  // consider, and a malformed connection string fails every pool the same way.
+  //
+  // The strip applies ONLY in the relaxed branch. Any other `sslmode`
+  // (notably `verify-full`) is left byte-identical: removing it would silently
+  // downgrade a verifying connection to whatever the driver default is, which
+  // is the opposite direction from this function's purpose.
+  const parsed = new URL(connectionString);
+  const wantsRelaxedTls = parsed.searchParams.get("sslmode") === "require";
+  if (!wantsRelaxedTls) return { connectionString };
+  parsed.searchParams.delete("sslmode");
+  return { connectionString: parsed.toString(), ssl: { rejectUnauthorized: false } };
+}
+
 function createPool(connectionString: string): Pool {
+  // TLS against a managed pooler (Supabase Supavisor) presents a chain Node's
+  // bundled roots do not verify — `self-signed certificate in certificate
+  // chain` — and node-postgres takes no CA through a connection-string query
+  // parameter, so there is no URL-only way to fix it. Scoped exception, not a
+  // global one: verification is skipped for THIS pool only, never via
+  // NODE_TLS_REJECT_UNAUTHORIZED (which would blind every TLS client in the
+  // process, including the Google OAuth token exchange — precisely the
+  // connection an attacker would want unverified).
+  //
+  // Production MUST terminate with a verifiable chain: pin the provider CA or
+  // connect over a private network. `tls-scope.test.ts` fails if this
+  // exception is ever widened beyond an explicit opt-in per connection string.
+  const resolved = tlsOptionsForDatabaseUrl(connectionString);
   return new Pool({
-    connectionString,
+    connectionString: resolved.connectionString,
     max: 10,
     // Fail fast rather than queueing indefinitely behind a stuck transaction.
     connectionTimeoutMillis: 5_000,
     idleTimeoutMillis: 30_000,
     application_name: "raptor_auth",
+    ...(resolved.ssl === undefined ? {} : { ssl: resolved.ssl }),
   });
 }
 

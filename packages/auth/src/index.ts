@@ -70,5 +70,6 @@ export {
   buildAuthOptions,
   createAuth,
   createAuthConfig,
+  tlsOptionsForDatabaseUrl,
   type ResolvedAuthConfig,
 } from "./config.js";

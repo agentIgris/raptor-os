@@ -20,7 +20,7 @@
  */
 
 import { NextRequest } from "next/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { buildContentSecurityPolicy, proxy } from "../proxy";
 
@@ -36,13 +36,33 @@ describe("Content-Security-Policy", () => {
   const policy = buildContentSecurityPolicy(NONCE);
 
   it("carries the nonce on script-src", () => {
-    expect(directive(policy, "script-src")).toBe(`script-src 'self' 'nonce-${NONCE}'`);
+    expect(directive(policy, "script-src")).toContain(`'nonce-${NONCE}'`);
   });
 
-  it("never allows unsafe-inline or unsafe-eval scripts", () => {
-    const scriptSrc = directive(policy, "script-src");
-    expect(scriptSrc).not.toContain("'unsafe-inline'");
-    expect(scriptSrc).not.toContain("'unsafe-eval'");
+  it("never allows unsafe-inline or unsafe-eval scripts in production", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    try {
+      const production = buildContentSecurityPolicy(NONCE);
+      expect(directive(production, "script-src")).toBe(
+        `script-src 'self' 'nonce-${NONCE}'`,
+      );
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it("allows unsafe-eval outside production, because Fast Refresh needs it to hydrate", () => {
+    // Without eval, `next dev` cannot hydrate: the sign-in form then degrades
+    // to a native GET submit, which puts the password in the URL query string.
+    // This test pins the exception to non-production so it cannot leak.
+    vi.stubEnv("NODE_ENV", "development");
+    try {
+      const development = buildContentSecurityPolicy(NONCE);
+      expect(directive(development, "script-src")).toContain("'unsafe-eval'");
+      expect(directive(development, "script-src")).not.toContain("'unsafe-inline'");
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 
   it("does not use strict-dynamic, which disables host-based allowlisting", () => {
