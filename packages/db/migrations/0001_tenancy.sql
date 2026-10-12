@@ -398,5 +398,59 @@ TO raptor_app;
 REVOKE INSERT, UPDATE, DELETE ON role, role_permission, role_scope_rule FROM raptor_app;
 
 -- RLS is useless to a role that can simply switch it off.
-ALTER ROLE raptor_app NOBYPASSRLS;
-ALTER ROLE raptor_app NOSUPERUSER;
+--
+-- Portable form: on a self-hosted PostgreSQL the migration owner is a superuser and the
+-- function below enforces the attributes even if the role predates this migration. On a
+-- MANAGED database (Supabase Cloud, RDS, AlloyDB) the owner is not a superuser and ALTER
+-- ROLE against another role's SUPERUSER/BYPASSRLS attributes is refused with 42501 — the
+-- platform owns role elevation, not the migration. There the CREATE ROLE above, which names
+-- both attributes explicitly, is what sets them, and the function VERIFIES rather than
+-- enforces: if the role exists with the wrong attributes and we cannot change them, the
+-- migration fails loudly instead of shipping a superuser application role silently.
+CREATE OR REPLACE FUNCTION ensure_role_hardened(p_role text)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  owner_is_superuser boolean;
+  target_is_super    boolean;
+  target_bypasses    boolean;
+BEGIN
+  SELECT rolsuper INTO owner_is_superuser
+  FROM pg_catalog.pg_roles WHERE rolname = current_user;
+
+  IF owner_is_superuser THEN
+    EXECUTE pg_catalog.format('ALTER ROLE %I NOBYPASSRLS', p_role);
+    EXECUTE pg_catalog.format('ALTER ROLE %I NOSUPERUSER', p_role);
+  ELSE
+    SELECT rolsuper, rolbypassrls INTO target_is_super, target_bypasses
+    FROM pg_catalog.pg_roles WHERE rolname = p_role;
+
+    IF target_is_super OR target_bypasses THEN
+      RAISE EXCEPTION
+        'role % must be NOSUPERUSER NOBYPASSRLS, but is rolsuper=% rolbypassrls=%, and the migration owner % is not a superuser and cannot change it',
+        p_role, target_is_super, target_bypasses, current_user;
+    END IF;
+  END IF;
+END
+$$;
+
+REVOKE ALL ON FUNCTION ensure_role_hardened(text) FROM PUBLIC;
+
+-- Thin wrapper kept stable for the call sites in later migrations. The inner call is
+-- schema-qualified because this wrapper itself runs with SET search_path = '': an
+-- unqualified name resolves against NO schema, and the call fails with
+-- "function ensure_role_hardened(unknown) does not exist". That failure mode is easy to
+-- misread as a missing function rather than what it is — an empty search path.
+CREATE OR REPLACE FUNCTION ensure_raptor_app_hardened()
+RETURNS void
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = ''
+AS $$ SELECT public.ensure_role_hardened('raptor_app') $$;
+
+REVOKE ALL ON FUNCTION ensure_raptor_app_hardened() FROM PUBLIC;
+
+SELECT ensure_raptor_app_hardened();

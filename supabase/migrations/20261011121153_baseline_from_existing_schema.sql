@@ -20,6 +20,7 @@
 --   11. 0011_portability.sql
 --   12. 0012_analytics.sql
 --   13. 0013_security_review.sql
+--   14. 0014_person_credential_link.sql
 --
 -- Every statement below is reproduced verbatim from the source. Anything this file appears
 -- to assert about the schema, assert against the source instead.
@@ -428,8 +429,62 @@ TO raptor_app;
 REVOKE INSERT, UPDATE, DELETE ON role, role_permission, role_scope_rule FROM raptor_app;
 
 -- RLS is useless to a role that can simply switch it off.
-ALTER ROLE raptor_app NOBYPASSRLS;
-ALTER ROLE raptor_app NOSUPERUSER;
+--
+-- Portable form: on a self-hosted PostgreSQL the migration owner is a superuser and the
+-- function below enforces the attributes even if the role predates this migration. On a
+-- MANAGED database (Supabase Cloud, RDS, AlloyDB) the owner is not a superuser and ALTER
+-- ROLE against another role's SUPERUSER/BYPASSRLS attributes is refused with 42501 — the
+-- platform owns role elevation, not the migration. There the CREATE ROLE above, which names
+-- both attributes explicitly, is what sets them, and the function VERIFIES rather than
+-- enforces: if the role exists with the wrong attributes and we cannot change them, the
+-- migration fails loudly instead of shipping a superuser application role silently.
+CREATE OR REPLACE FUNCTION ensure_role_hardened(p_role text)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  owner_is_superuser boolean;
+  target_is_super    boolean;
+  target_bypasses    boolean;
+BEGIN
+  SELECT rolsuper INTO owner_is_superuser
+  FROM pg_catalog.pg_roles WHERE rolname = current_user;
+
+  IF owner_is_superuser THEN
+    EXECUTE pg_catalog.format('ALTER ROLE %I NOBYPASSRLS', p_role);
+    EXECUTE pg_catalog.format('ALTER ROLE %I NOSUPERUSER', p_role);
+  ELSE
+    SELECT rolsuper, rolbypassrls INTO target_is_super, target_bypasses
+    FROM pg_catalog.pg_roles WHERE rolname = p_role;
+
+    IF target_is_super OR target_bypasses THEN
+      RAISE EXCEPTION
+        'role % must be NOSUPERUSER NOBYPASSRLS, but is rolsuper=% rolbypassrls=%, and the migration owner % is not a superuser and cannot change it',
+        p_role, target_is_super, target_bypasses, current_user;
+    END IF;
+  END IF;
+END
+$$;
+
+REVOKE ALL ON FUNCTION ensure_role_hardened(text) FROM PUBLIC;
+
+-- Thin wrapper kept stable for the call sites in later migrations. The inner call is
+-- schema-qualified because this wrapper itself runs with SET search_path = '': an
+-- unqualified name resolves against NO schema, and the call fails with
+-- "function ensure_role_hardened(unknown) does not exist". That failure mode is easy to
+-- misread as a missing function rather than what it is — an empty search path.
+CREATE OR REPLACE FUNCTION ensure_raptor_app_hardened()
+RETURNS void
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = ''
+AS $$ SELECT public.ensure_role_hardened('raptor_app') $$;
+
+REVOKE ALL ON FUNCTION ensure_raptor_app_hardened() FROM PUBLIC;
+
+SELECT ensure_raptor_app_hardened();
 
 -- ==========================================================================
 -- SOURCE: packages/db/migrations/0002_competitive.sql
@@ -1309,8 +1364,8 @@ GRANT EXECUTE ON FUNCTION reserve_competition_division_place() TO raptor_app;
 GRANT EXECUTE ON FUNCTION release_competition_division_place() TO raptor_app;
 
 -- RLS is worthless to a role that can switch it off.
-ALTER ROLE raptor_app NOBYPASSRLS;
-ALTER ROLE raptor_app NOSUPERUSER;
+-- Reassert the application role attributes. Portable across self-hosted and managed databases: enforces where the owner is a superuser, verifies otherwise (see ensure_raptor_app_hardened() in 0001_tenancy.sql).
+SELECT ensure_raptor_app_hardened();
 
 -- ==========================================================================
 -- SOURCE: packages/db/migrations/0003_registration_place_invariant.sql
@@ -3072,8 +3127,8 @@ GRANT EXECUTE ON FUNCTION
 TO raptor_app;
 
 -- RLS is worthless to a role that can switch it off.
-ALTER ROLE raptor_app NOBYPASSRLS;
-ALTER ROLE raptor_app NOSUPERUSER;
+-- Reassert the application role attributes. Portable across self-hosted and managed databases: enforces where the owner is a superuser, verifies otherwise (see ensure_raptor_app_hardened() in 0001_tenancy.sql).
+SELECT ensure_raptor_app_hardened();
 
 COMMIT;
 
@@ -3341,9 +3396,8 @@ REVOKE UPDATE ON prize_pool FROM raptor_app;
 GRANT UPDATE (status, settled_at, settled_by_person_id) ON prize_pool TO raptor_app;
 
 REVOKE ALL ON FUNCTION public.assert_pool_is_settled() FROM PUBLIC;
-
-ALTER ROLE raptor_app NOBYPASSRLS;
-ALTER ROLE raptor_app NOSUPERUSER;
+-- Reassert the application role attributes. Portable across self-hosted and managed databases: enforces where the owner is a superuser, verifies otherwise (see ensure_raptor_app_hardened() in 0001_tenancy.sql).
+SELECT ensure_raptor_app_hardened();
 
 COMMIT;
 
@@ -3807,9 +3861,8 @@ REVOKE ALL ON FUNCTION public.guard_staff_window_overlap() FROM PUBLIC;
 -- migration that added a table without re-asserting this would be the one place in
 -- the chain where the property could quietly lapse.
 -- -----------------------------------------------------------------------------
-
-ALTER ROLE raptor_app NOBYPASSRLS;
-ALTER ROLE raptor_app NOSUPERUSER;
+-- Reassert the application role attributes. Portable across self-hosted and managed databases: enforces where the owner is a superuser, verifies otherwise (see ensure_raptor_app_hardened() in 0001_tenancy.sql).
+SELECT ensure_raptor_app_hardened();
 
 COMMIT;
 
@@ -4621,9 +4674,8 @@ GRANT EXECUTE ON FUNCTION public.player_performance_leaderboard(timestamptz, tim
 -- migration that added tables without re-asserting this would be the one place in
 -- the chain where the property could quietly lapse.
 -- -----------------------------------------------------------------------------
-
-ALTER ROLE raptor_app NOBYPASSRLS;
-ALTER ROLE raptor_app NOSUPERUSER;
+-- Reassert the application role attributes. Portable across self-hosted and managed databases: enforces where the owner is a superuser, verifies otherwise (see ensure_raptor_app_hardened() in 0001_tenancy.sql).
+SELECT ensure_raptor_app_hardened();
 
 COMMIT;
 
@@ -6266,8 +6318,8 @@ TO raptor_app;
 
 -- RLS is worthless to a role that can switch it off. Restated at the end of the file,
 -- as 0001, 0002, 0004, 0005, 0006 and 0007 each do.
-ALTER ROLE raptor_app NOBYPASSRLS;
-ALTER ROLE raptor_app NOSUPERUSER;
+-- Reassert the application role attributes. Portable across self-hosted and managed databases: enforces where the owner is a superuser, verifies otherwise (see ensure_raptor_app_hardened() in 0001_tenancy.sql).
+SELECT ensure_raptor_app_hardened();
 
 COMMIT;
 
@@ -8490,10 +8542,9 @@ TO raptor_app;
 
 -- RLS is worthless to a role that can switch it off. Restated at the end of the file, as
 -- 0001, 0002, 0004, 0005, 0006, 0007 and 0008 each do.
-ALTER ROLE raptor_app NOBYPASSRLS;
-ALTER ROLE raptor_app NOSUPERUSER;
-ALTER ROLE raptor_public NOBYPASSRLS;
-ALTER ROLE raptor_public NOSUPERUSER;
+-- Reassert the application role attributes. Portable across self-hosted and managed databases: enforces where the owner is a superuser, verifies otherwise (see ensure_role_hardened(text) in 0001_tenancy.sql).
+SELECT ensure_raptor_app_hardened();
+SELECT ensure_role_hardened('raptor_public');
 
 COMMIT;
 
@@ -11911,8 +11962,10 @@ BEGIN
 END
 $sys$;
 
-ALTER ROLE raptor_system NOSUPERUSER;
-ALTER ROLE raptor_system NOBYPASSRLS;
+-- Portable like ensure_raptor_app_hardened(): enforce where the owner is a superuser,
+-- verify otherwise (see ensure_role_hardened(text) in 0001_tenancy.sql). A managed
+-- database refuses ALTER ROLE against another role's elevation attributes.
+SELECT ensure_role_hardened('raptor_system');
 
 -- ENVIRONMENT TRAP, RECORDED SO THE NEXT MIGRATION DOES NOT RE-DISCOVER IT.
 -- `ALTER TABLE ... DROP POLICY` is a PARSE-LEVEL FAILURE in this PGlite build
@@ -12189,3 +12242,77 @@ COMMENT ON FUNCTION public.portability_export_document() IS
 -- rather than from a hand-maintained list, and asserts the composite form. The
 -- list-based version of that test missed all four authorisation tables, which is
 -- why CRITICAL-1 shipped while the suite was green.
+
+-- ==========================================================================
+-- SOURCE: packages/db/migrations/0014_person_credential_link.sql
+-- ==========================================================================
+
+-- =============================================================================
+-- 0014 — person_credential_link: the join between the domain identity and the
+-- login identity (ADR-0018, item 1).
+-- =============================================================================
+--
+-- THE GAP THIS CLOSES
+-- -------------------
+-- `packages/db` models people as person(id) + identity + org_membership(person_id).
+-- `packages/auth` (Better Auth) models them as "user"(id) + "account" + "session"(userId).
+-- Nothing joined them. Every authorisation decision keys on person_id; every
+-- authentication decision keys on "user".id. `auth_set_active_org` could not execute:
+-- it needed an active org_membership for the session's user, and there was no path
+-- from a user to a person. It failed closed, which was correct but useless.
+--
+-- DECISION (ADR-0018): person is the identity root. Better Auth's "user" is an
+-- authentication detail — a credential set by which a person proves who they are.
+-- This table binds them.
+--
+-- WHY NO org_id, NO RLS
+-- ---------------------
+-- Both sides are global: person is org-independent by design (a human may work for
+-- several organisations), and "user" is likewise global. An org_id here would answer
+-- "which organisation does this LOGIN belong to", which is the wrong question — the
+-- login belongs to the person, and membership answers the org question per org.
+-- person, identity and person_profile are likewise global and RLS-less; this table
+-- follows the same precedent deliberately, not by omission.
+--
+-- WHY NO FOREIGN KEY TO "user"
+-- -----------------------------
+-- "user" is owned by packages/auth and does not exist when these migrations run
+-- standalone (and must not: the domain layer cannot depend on the auth provider's
+-- lifecycle — that coupling is what ADR-0007 exists to avoid). A REFERENCES clause
+-- to a table that may not exist would make this migration unappliable. So:
+--   - person_id REFERENCES person(id) ON DELETE RESTRICT (losing a credential must
+--     not delete a person; deleting a person must not orphan a credential silently).
+--   - user_id is a bare uuid with UNIQUE(user_id): one credential resolves to at most
+--     one person. Two "user" rows linked to one person would grant the union of their
+--     reach, so the uniqueness is the load-bearing constraint.
+-- Orphan user_ids (a "user" row deleted while its link survives) resolve to a person
+-- with no credential — which reads as "no login", the safe direction.
+--
+-- PRIVILEGE
+-- ---------
+-- No grant to raptor_app. Linking is a privileged, audited act (ADR-0018 rule 3:
+-- creating the first link for a person is an authentication.link_created event),
+-- performed through the migration/owner path. `auth_set_active_org` reads this table
+-- as its SECURITY DEFINER owner, so it needs no grant to function.
+-- THAT IS LOAD-BEARING, NOT INCIDENTAL: if a future migration grants DML here to an
+-- application role, the membership check becomes bypassable by link forgery.
+
+CREATE TABLE IF NOT EXISTS person_credential_link (
+  person_id   uuid        NOT NULL REFERENCES person(id) ON DELETE RESTRICT,
+  user_id     uuid        NOT NULL,
+  linked_at   timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT person_credential_link_pkey PRIMARY KEY (person_id, user_id),
+  CONSTRAINT person_credential_link_user_id_key UNIQUE (user_id)
+);
+
+COMMENT ON TABLE person_credential_link IS
+  'Binds a domain person to a Better Auth "user" (ADR-0018). person is the identity root; "user" is a credential set. A person with no link is legitimate (invited, never issued a login) and remains rosterable and payable. A "user" with no link may not transact: membership cannot be satisfied without a person, so auth_set_active_org fails closed. Deliberately NOT exported by portability_export_contract(): a credential binding is authentication material, not business data — re-importing it elsewhere would point at user rows that do not exist there, or worse at a different human''s login. Like identity, links are re-established by re-authentication, never by transfer.';
+
+COMMENT ON CONSTRAINT person_credential_link_user_id_key ON person_credential_link IS
+  'One credential resolves to at most one person. Without this, two "user" rows linked to one person would grant the union of their reach.';
+
+-- Self-guardianship of the constraint set: the link table must never become a
+-- second identity model. A display name, an email, a credential hash or anything
+-- that answers "who is this human" belongs on person/person_profile or on "user",
+-- never here. Enforced by inspection, not by DDL — but stated so the next column
+-- addition has to argue with this comment first.

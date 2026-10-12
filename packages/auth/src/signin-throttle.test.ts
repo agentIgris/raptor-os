@@ -68,7 +68,7 @@ async function createVerifiedUser(email: string): Promise<void> {
   );
   expect([200, 422]).toContain(signUp.status);
 
-  await fixture.ownerPool.query('UPDATE "user" SET "emailVerified" = true WHERE "email" = $1', [email]);
+  await fixture.ownerPool.query('UPDATE "auth_user" SET "emailVerified" = true WHERE "email" = $1', [email]);
 }
 
 /**
@@ -113,7 +113,7 @@ async function attemptSignIn(
  * something.
  */
 async function clearPerIpSignInBudget(): Promise<void> {
-  await fixture.ownerPool.query('DELETE FROM "rateLimit" WHERE "key" LIKE $1', ["%|/sign-in/email"]);
+  await fixture.ownerPool.query('DELETE FROM "auth_rate_limit" WHERE "key" LIKE $1', ["%|/sign-in/email"]);
 }
 
 /** The `code` on a JSON error body, or null when there is none. */
@@ -158,7 +158,7 @@ describe("a client-supplied forwarding header", () => {
     }
 
     const keys = await fixture.ownerPool.query<{ key: string }>(
-      'SELECT "key" FROM "rateLimit" WHERE "key" LIKE $1',
+      'SELECT "key" FROM "auth_rate_limit" WHERE "key" LIKE $1',
       ["%|/sign-in/email"],
     );
     const distinct = new Set(keys.rows.map((row) => row.key));
@@ -319,7 +319,7 @@ describe("the MFA account lockout does NOT cover passwords", () => {
     await createVerifiedUser(email);
 
     const userId = await fixture.ownerPool
-      .query<{ id: string }>('SELECT "id" FROM "user" WHERE "email" = $1', [email])
+      .query<{ id: string }>('SELECT "id" FROM "auth_user" WHERE "email" = $1', [email])
       .then((rows) => {
         const id = rows.rows[0]?.id;
         if (id === undefined) throw new Error("no user row for the fixture address");
@@ -328,7 +328,7 @@ describe("the MFA account lockout does NOT cover passwords", () => {
 
     // An enrolled account, so the twoFactor row exists to be counted on.
     await fixture.ownerPool.query(
-      `INSERT INTO "twoFactor" ("secret", "backupCodes", "userId", "verified")
+      `INSERT INTO "auth_two_factor" ("secret", "backupCodes", "userId", "verified")
        VALUES ($1, $2, $3, true)`,
       ["encrypted-secret-value", "encrypted-backup-codes", userId],
     );
@@ -338,7 +338,7 @@ describe("the MFA account lockout does NOT cover passwords", () => {
     }
 
     const twoFactor = await fixture.ownerPool.query<{ failed: number | null; locked: Date | null }>(
-      'SELECT "failedVerificationCount" AS failed, "lockedUntil" AS locked FROM "twoFactor" WHERE "userId" = $1',
+      'SELECT "failedVerificationCount" AS failed, "lockedUntil" AS locked FROM "auth_two_factor" WHERE "userId" = $1',
       [userId],
     );
 

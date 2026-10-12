@@ -67,15 +67,38 @@ function describeError(code: string | undefined): string {
 export interface SignInFormProps {
   /** Where to go after a successful sign-in. Server-provided, never read from the URL. */
   readonly callbackUrl: string;
+  /**
+   * Whether the server has Google OAuth credentials. Server-computed from its
+   * own environment and passed as a boolean — the client never sees the values.
+   * When false, no Google button renders at all: a button that dies on Google's
+   * error page strands the user outside the app.
+   */
+  readonly googleEnabled: boolean;
 }
 
-export function SignInForm({ callbackUrl }: SignInFormProps): React.JSX.Element {
+export function SignInForm({ callbackUrl, googleEnabled }: SignInFormProps): React.JSX.Element {
   const router = useRouter();
   const [pending, setPending] = React.useState(false);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
   const [showPassword, setShowPassword] = React.useState(false);
   const errorRef = React.useRef<HTMLDivElement>(null);
 
+  const onGoogleSignIn = async (): Promise<void> => {
+    if (pending) return;
+    setPending(true);
+    setErrorMessage(null);
+    try {
+      const authClient = createAuthClient();
+      // A full navigation, not fetch: the OAuth dance leaves the origin for
+      // Google and returns to the callback URL. The session still arrives as an
+      // httpOnly cookie — nothing here reads a token, same as the email flow.
+      await authClient.signIn.social({ provider: "google", callbackURL: callbackUrl });
+    } catch {
+      setErrorMessage("Sign-in failed. Try again, or contact an organisation owner.");
+    } finally {
+      setPending(false);
+    }
+  };
   const onSubmit = async (event: React.FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
     if (pending) return;
@@ -169,6 +192,29 @@ export function SignInForm({ callbackUrl }: SignInFormProps): React.JSX.Element 
       <Button type="submit" size="lg" disabled={pending} aria-busy={pending} className="w-full">
         {pending ? "Signing in…" : "Sign in"}
       </Button>
+
+      {googleEnabled ? (
+        <>
+          <div className="flex min-w-0 items-center gap-3" aria-hidden="true">
+            <span className="h-px flex-1 bg-border" />
+            <span className="text-[length:var(--text-sm)] break-words text-ink-muted">or</span>
+            <span className="h-px flex-1 bg-border" />
+          </div>
+          <Button
+            type="button"
+            size="lg"
+            variant="outline"
+            disabled={pending}
+            aria-busy={pending}
+            className="w-full"
+            onClick={() => {
+              void onGoogleSignIn();
+            }}
+          >
+            {pending ? "Signing in…" : "Continue with Google"}
+          </Button>
+        </>
+      ) : null}
 
       {/*
         Status region.

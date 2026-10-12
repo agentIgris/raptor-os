@@ -15,7 +15,7 @@
 -- run against an empty PostgreSQL 18.6 database with the exact option set in
 -- `config.ts`. The output was then wrapped in `IF NOT EXISTS`, given CHECK
 -- constraints, and given policies. Nothing here was guessed: the odd camelCase
--- identifiers (`"emailVerified"`, `"twoFactor"`, `"lastRequest"`) and the
+-- identifiers (`"emailVerified"`, `"auth_two_factor"`, `"lastRequest"`) and the
 -- `uuid` primary keys are what Better Auth actually sends on the wire, and a
 -- "tidied up" snake_case schema would fail at the first query.
 --
@@ -73,7 +73,7 @@ COMMENT ON FUNCTION current_org_id() IS
 -- NOT NULL here would make `auth migrate` report drift.
 -- -----------------------------------------------------------------------------
 
-CREATE TABLE IF NOT EXISTS "user" (
+CREATE TABLE IF NOT EXISTS "auth_user" (
   "id"               uuid        DEFAULT pg_catalog.gen_random_uuid() NOT NULL PRIMARY KEY,
   "name"             text        NOT NULL,
   "email"            text        NOT NULL UNIQUE,
@@ -101,8 +101,8 @@ CREATE TABLE IF NOT EXISTS "user" (
 
 -- Repairs the drift case where Better Auth's own `auth migrate` ran first and
 -- therefore never created the two columns this package adds.
-ALTER TABLE "user"      ADD COLUMN IF NOT EXISTS "twoFactorEnabled" boolean;
-ALTER TABLE "user"      ADD COLUMN IF NOT EXISTS "role"             text;
+ALTER TABLE "auth_user"      ADD COLUMN IF NOT EXISTS "twoFactorEnabled" boolean;
+ALTER TABLE "auth_user"      ADD COLUMN IF NOT EXISTS "role"             text;
 
 -- -----------------------------------------------------------------------------
 -- session
@@ -125,7 +125,7 @@ ALTER TABLE "user"      ADD COLUMN IF NOT EXISTS "role"             text;
 -- no longer one.
 -- -----------------------------------------------------------------------------
 
-CREATE TABLE IF NOT EXISTS "session" (
+CREATE TABLE IF NOT EXISTS "auth_session" (
   "id"        uuid        DEFAULT pg_catalog.gen_random_uuid() NOT NULL PRIMARY KEY,
   "expiresAt" timestamptz NOT NULL,
   "token"     text        NOT NULL UNIQUE,
@@ -133,7 +133,7 @@ CREATE TABLE IF NOT EXISTS "session" (
   "updatedAt" timestamptz DEFAULT CURRENT_TIMESTAMP NOT NULL,
   "ipAddress" text,
   "userAgent" text,
-  "userId"    uuid        NOT NULL REFERENCES "user" ("id") ON DELETE CASCADE,
+  "userId"    uuid        NOT NULL REFERENCES "auth_user" ("id") ON DELETE CASCADE,
   "orgId"     text,
 
   -- A session that expires before it is created can only come from a clock
@@ -142,10 +142,10 @@ CREATE TABLE IF NOT EXISTS "session" (
     CHECK ("expiresAt" > "createdAt")
 );
 
-ALTER TABLE "session"  ADD COLUMN IF NOT EXISTS "orgId" text;
+ALTER TABLE "auth_session"  ADD COLUMN IF NOT EXISTS "orgId" text;
 
-CREATE INDEX IF NOT EXISTS "session_userId_idx" ON "session" ("userId");
-CREATE INDEX IF NOT EXISTS "session_orgId_idx"  ON "session" ("orgId");
+CREATE INDEX IF NOT EXISTS "session_userId_idx" ON "auth_session" ("userId");
+CREATE INDEX IF NOT EXISTS "session_orgId_idx"  ON "auth_session" ("orgId");
 
 -- -----------------------------------------------------------------------------
 -- account
@@ -155,11 +155,11 @@ CREATE INDEX IF NOT EXISTS "session_orgId_idx"  ON "session" ("orgId");
 -- the server; the column names are kept because that is what the adapter reads.
 -- -----------------------------------------------------------------------------
 
-CREATE TABLE IF NOT EXISTS "account" (
+CREATE TABLE IF NOT EXISTS "auth_account" (
   "id"                     uuid        DEFAULT pg_catalog.gen_random_uuid() NOT NULL PRIMARY KEY,
   "accountId"              text        NOT NULL,
   "providerId"             text        NOT NULL,
-  "userId"                 uuid        NOT NULL REFERENCES "user" ("id") ON DELETE CASCADE,
+  "userId"                 uuid        NOT NULL REFERENCES "auth_user" ("id") ON DELETE CASCADE,
   "accessToken"            text,
   "refreshToken"           text,
   "idToken"                text,
@@ -177,7 +177,7 @@ CREATE TABLE IF NOT EXISTS "account" (
   CONSTRAINT account_account_id_present_check  CHECK ("accountId"  <> '')
 );
 
-CREATE INDEX IF NOT EXISTS "account_userId_idx" ON "account" ("userId");
+CREATE INDEX IF NOT EXISTS "account_userId_idx" ON "auth_account" ("userId");
 
 -- -----------------------------------------------------------------------------
 -- verification
@@ -190,7 +190,7 @@ CREATE INDEX IF NOT EXISTS "account_userId_idx" ON "account" ("userId");
 -- foot of this file, not a policy.
 -- -----------------------------------------------------------------------------
 
-CREATE TABLE IF NOT EXISTS "verification" (
+CREATE TABLE IF NOT EXISTS "auth_verification" (
   "id"         uuid        DEFAULT pg_catalog.gen_random_uuid() NOT NULL PRIMARY KEY,
   "identifier" text        NOT NULL,
   "value"      text        NOT NULL,
@@ -203,7 +203,7 @@ CREATE TABLE IF NOT EXISTS "verification" (
   CONSTRAINT verification_identifier_present_check CHECK ("identifier" <> '')
 );
 
-CREATE INDEX IF NOT EXISTS "verification_identifier_idx" ON "verification" ("identifier");
+CREATE INDEX IF NOT EXISTS "verification_identifier_idx" ON "auth_verification" ("identifier");
 
 -- -----------------------------------------------------------------------------
 -- twoFactor
@@ -216,11 +216,11 @@ CREATE INDEX IF NOT EXISTS "verification_identifier_idx" ON "verification" ("ide
 -- per IP, but only one account-level counter.
 -- -----------------------------------------------------------------------------
 
-CREATE TABLE IF NOT EXISTS "twoFactor" (
+CREATE TABLE IF NOT EXISTS "auth_two_factor" (
   "id"                      uuid        DEFAULT pg_catalog.gen_random_uuid() NOT NULL PRIMARY KEY,
   "secret"                  text        NOT NULL,
   "backupCodes"             text        NOT NULL,
-  "userId"                  uuid        NOT NULL REFERENCES "user" ("id") ON DELETE CASCADE,
+  "userId"                  uuid        NOT NULL REFERENCES "auth_user" ("id") ON DELETE CASCADE,
   "verified"                boolean     DEFAULT true,
   "failedVerificationCount" integer,
   "lockedUntil"             timestamptz,
@@ -262,8 +262,8 @@ CREATE TABLE IF NOT EXISTS "twoFactor" (
     CHECK ("lockedUntil" IS NULL OR COALESCE("failedVerificationCount", 0) > 0)
 );
 
-CREATE INDEX IF NOT EXISTS "twoFactor_secret_idx" ON "twoFactor" ("secret");
-CREATE INDEX IF NOT EXISTS "twoFactor_userId_idx" ON "twoFactor" ("userId");
+CREATE INDEX IF NOT EXISTS "twoFactor_secret_idx" ON "auth_two_factor" ("secret");
+CREATE INDEX IF NOT EXISTS "twoFactor_userId_idx" ON "auth_two_factor" ("userId");
 
 -- -----------------------------------------------------------------------------
 -- rateLimit
@@ -274,7 +274,7 @@ CREATE INDEX IF NOT EXISTS "twoFactor_userId_idx" ON "twoFactor" ("userId");
 -- multiply the effective limit by N.
 -- -----------------------------------------------------------------------------
 
-CREATE TABLE IF NOT EXISTS "rateLimit" (
+CREATE TABLE IF NOT EXISTS "auth_rate_limit" (
   "id"          uuid   DEFAULT pg_catalog.gen_random_uuid() NOT NULL PRIMARY KEY,
   "key"         text   NOT NULL UNIQUE,
   "count"       integer NOT NULL,
@@ -341,9 +341,9 @@ $$;
 COMMENT ON FUNCTION user_mfa_guard() IS
   'Rejects a user row that holds a privileged role without TOTP enrolled, in both directions.';
 
-DROP TRIGGER IF EXISTS user_mfa_guard_trigger ON "user";
+DROP TRIGGER IF EXISTS user_mfa_guard_trigger ON "auth_user";
 CREATE TRIGGER user_mfa_guard_trigger
-  BEFORE INSERT OR UPDATE ON "user"
+  BEFORE INSERT OR UPDATE ON "auth_user"
   FOR EACH ROW EXECUTE FUNCTION user_mfa_guard();
 
 -- =============================================================================
@@ -351,13 +351,13 @@ CREATE TRIGGER user_mfa_guard_trigger
 --
 -- NO TABLE IN THIS FILE IS TENANT-SCOPED. ADR-0017.
 -- -----------------------------------------------
--- "user", "account", "verification", "twoFactor" and "rateLimit" are identity,
+-- "auth_user", "auth_account", "auth_verification", "auth_two_factor" and "auth_rate_limit" are identity,
 -- which is org-INDEPENDENT by design — the same decision `packages/db` already
 -- took for `person` and `identity`, because one human may work for several
 -- organisations. An `org_id` predicate on `user` would be meaningless rather
 -- than merely redundant.
 --
--- "session" was the lone exception and it was wrong, twice. It first carried
+-- "auth_session" was the lone exception and it was wrong, twice. It first carried
 --
 --     USING (current_org_id() IS NULL OR "orgId" IS NULL OR "orgId" = ...)
 --
@@ -376,15 +376,15 @@ CREATE TRIGGER user_mfa_guard_trigger
 -- `orgId` is `input: false` in `config.ts`, so Better Auth inserts NULL, and
 -- `NULL = anything` is NULL rather than TRUE. Every session insert was refused:
 --
---     code=42501  new row violates row-level security policy for table "session"
+--     code=42501  new row violates row-level security policy for table "auth_session"
 --
--- Both failures share one cause: treating "session" as the tenant-scoped record
+-- Both failures share one cause: treating "auth_session" as the tenant-scoped record
 -- when it is the identity record that ESTABLISHES the tenant. The circle is
 -- unavoidable under that mistake — resolving the tenant needs the session, and
 -- reading the session needs the tenant. One direction fails open, the other
 -- fails closed.
 --
--- So "session" is grouped with the other identity tables: no tenant predicate,
+-- So "auth_session" is grouped with the other identity tables: no tenant predicate,
 -- and no RLS at all. It is identity for the same reason `0001_tenancy.sql` says
 -- `person` is.
 --
@@ -414,12 +414,12 @@ CREATE TRIGGER user_mfa_guard_trigger
 -- A TABLE WITH RLS ENABLED AND NO POLICY IS NOT "PROTECTED BUT WORKING" — IT IS
 -- "PROTECTED AND UNUSABLE". Row Level Security is default-deny, so a non-owner
 -- role sees zero rows no matter what it has been granted. This is verified
--- against the real database rather than assumed: `SELECT count(*) FROM "user"` as
+-- against the real database rather than assumed: `SELECT count(*) FROM "auth_user"` as
 -- `raptor_app` returns 0 on a policy-less table, which in production would look
 -- like every user's password being wrong. Hence the explicit
 -- `*_app_role_access` policies below.
 --
--- "session" is deliberately ABSENT from the ENABLE list at the foot of this
+-- "auth_session" is deliberately ABSENT from the ENABLE list at the foot of this
 -- section. Enabling RLS there would make the table default-deny for every role
 -- that is not the owner — the unusable state described above — while the
 -- `*_app_role_access` policy already grants `raptor_app` full DML, so the net
@@ -469,7 +469,7 @@ CREATE TRIGGER user_mfa_guard_trigger
 --     function resolving unqualified names lets any caller who can create an object
 --     in a directory on the path shadow the tables the body names and run the
 --     function's privileges against their own. Pinning the path to empty forces
---     every name to be schema-qualified, hence `public."session"`.
+--     every name to be schema-qualified, hence `public."auth_session"`.
 --
 --   * NO `p_org_id` PARAMETER, still. `auth_session_by_token(p_token, p_org_id)`
 --     would let a caller name the tenant it reads from, which is precisely the
@@ -482,14 +482,14 @@ CREATE TRIGGER user_mfa_guard_trigger
 -- -----------------------------------------------------------------------------
 
 CREATE OR REPLACE FUNCTION auth_session_by_token(p_token text)
-RETURNS SETOF public."session"
+RETURNS SETOF public."auth_session"
 LANGUAGE sql
 STABLE
 SECURITY DEFINER
 SET search_path = ''
 AS $$
   SELECT s.*
-  FROM public."session" s
+  FROM public."auth_session" s
   WHERE s."token" = p_token
 $$;
 
@@ -531,16 +531,30 @@ SECURITY DEFINER
 SET search_path = ''
 AS $$
 DECLARE
-  v_user_id uuid;
+  v_user_id   uuid;
+  v_person_id uuid;
 BEGIN
   -- Resolve the caller from the token they already hold, so the membership check
   -- is about THAT user and cannot be aimed at someone else's.
   SELECT s."userId"
     INTO v_user_id
-    FROM public."session" s
+    FROM public."auth_session" s
    WHERE s."token" = p_token;
 
   IF v_user_id IS NULL THEN
+    RETURN false;
+  END IF;
+
+  -- Cross the identity boundary (ADR-0018): the session names a "auth_user", but
+  -- membership is recorded against a person. A "auth_user" with no link resolves to no
+  -- person, so membership cannot be satisfied and this returns false. That is the
+  -- control, not a missing case: an unlinked login may not transact.
+  SELECT l.person_id
+    INTO v_person_id
+    FROM public.person_credential_link l
+   WHERE l.user_id = v_user_id;
+
+  IF v_person_id IS NULL THEN
     RETURN false;
   END IF;
 
@@ -549,14 +563,14 @@ BEGIN
   IF NOT EXISTS (
     SELECT 1
       FROM public.org_membership m
-     WHERE m."userId" = v_user_id
+     WHERE m.person_id = v_person_id
        AND m."org_id" = p_org_id
        AND m."status" = 'active'
   ) THEN
     RETURN false;
   END IF;
 
-  UPDATE public."session"
+  UPDATE public."auth_session"
      SET "orgId" = p_org_id::text
    WHERE "token" = p_token;
 
@@ -573,7 +587,7 @@ GRANT EXECUTE ON FUNCTION auth_set_active_org(text, uuid) TO raptor_app;
 -- -----------------------------------------------------------------------------
 -- IDENTITY TABLES: PROTECTED BY ROLE, NOT BY TENANT
 --
--- "account" AND "verification" NEED NO SPECIAL TREATMENT, and that is worth
+-- "auth_account" AND "auth_verification" NEED NO SPECIAL TREATMENT, and that is worth
 -- stating explicitly rather than leaving to inspection. The bootstrap defect was
 -- a `current_org_id() IS NULL` branch, and these two tables never had one: their
 -- policy is `session_user = 'raptor_app'`, which compares the *invoking role*,
@@ -595,7 +609,7 @@ GRANT EXECUTE ON FUNCTION auth_set_active_org(text, uuid) TO raptor_app;
 -- nobody else. Combined with the explicit GRANTs at the foot of this file, a
 -- future role must clear BOTH bars to touch identity data.
 --
--- "session" is now in this list rather than under a tenant policy (ADR-0017).
+-- "auth_session" is now in this list rather than under a tenant policy (ADR-0017).
 -- The predicate is the SAME role check as every other identity table, which is
 -- the point: it grants no organisation anything, and the tenant boundary is
 -- enforced by the forced-RLS business tables in `packages/db`.
@@ -660,17 +674,17 @@ GRANT EXECUTE ON FUNCTION auth_set_active_org(text, uuid) TO raptor_app;
 -- condition under which ADR-0017 has to be revisited.
 -- =============================================================================
 
-ALTER TABLE "user"        ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "account"     ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "verification" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "twoFactor"   ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "rateLimit"   ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "session"     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "auth_user"        ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "auth_account"     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "auth_verification" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "auth_two_factor"   ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "auth_rate_limit"   ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "auth_session"     ENABLE ROW LEVEL SECURITY;
 
 DO $$
 DECLARE
   t text;
-  identity_tables text[] := ARRAY['user','account','verification','twoFactor','rateLimit','session'];
+  identity_tables text[] := ARRAY['auth_user','auth_account','auth_verification','auth_two_factor','auth_rate_limit','auth_session'];
 BEGIN
   FOREACH t IN ARRAY identity_tables LOOP
     EXECUTE format('DROP POLICY IF EXISTS %I ON %I', t || '_app_role_access', t);
@@ -681,7 +695,7 @@ BEGIN
 END
 $$;
 
-COMMENT ON POLICY user_app_role_access ON "user" IS
+COMMENT ON POLICY auth_user_app_role_access ON "auth_user" IS
   'Identity tables are org-independent, so isolation is by role, not by tenant.';
 
 -- =============================================================================
@@ -708,14 +722,14 @@ $$;
 GRANT USAGE ON SCHEMA public TO raptor_app;
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON
-  "user", "session", "account", "verification", "twoFactor", "rateLimit"
+  "auth_user", "auth_session", "auth_account", "auth_verification", "auth_two_factor", "auth_rate_limit"
 TO raptor_app;
 
 -- The one column-level privilege in this file, and it closes a real hole.
 --
 -- The table-level UPDATE above is what Better Auth needs to refresh a session's
 -- expiry, and it necessarily includes "orgId". That means the application role
--- could `UPDATE "session" SET "orgId" = <any org>` directly, completely bypassing
+-- could `UPDATE "auth_session" SET "orgId" = <any org>` directly, completely bypassing
 -- the membership check in `auth_set_active_org` — leaving compensating control 2
 -- of ADR-0017 decorative for any caller with SQL access.
 --
@@ -729,16 +743,55 @@ TO raptor_app;
 -- it must be able to. It does not matter that INSERT could set "orgId", because
 -- `input: false` means Better Auth never sends that key, and the app role reaching
 -- a raw INSERT would still be unable to change an EXISTING session's orgId.
-REVOKE UPDATE ON "session" FROM raptor_app;
-GRANT UPDATE ("expiresAt", "updatedAt", "ipAddress", "userAgent") ON "session" TO raptor_app;
+REVOKE UPDATE ON "auth_session" FROM raptor_app;
+GRANT UPDATE ("expiresAt", "updatedAt", "ipAddress", "userAgent") ON "auth_session" TO raptor_app;
 
--- No DELETE on "verification" for the app role beyond token consumption? Kept
+-- No DELETE on "auth_verification" for the app role beyond token consumption? Kept
 -- deliberately: the two-factor plugin deletes a consumed 2fa-* challenge through
 -- the same path it created it, and revoking DELETE would break that flow rather
 -- than protect anything, since the row is a single-use token either way.
 
 -- RLS is useless to a role that can simply switch it off.
-ALTER ROLE raptor_app NOBYPASSRLS;
-ALTER ROLE raptor_app NOSUPERUSER;
+--
+-- Portable across self-hosted and managed databases. When this file is applied alongside
+-- the canonical migrations, `ensure_role_hardened(text)` from 0001_tenancy.sql does the
+-- work. When this file is applied STANDALONE (the auth test harness applies it to a fresh
+-- database without the tenancy migrations), that function does not exist — so the same
+-- enforce-where-superuser / verify-otherwise logic is inlined here rather than called.
+-- The two copies are intentionally identical in behaviour; 0001 is canonical.
+DO $$
+DECLARE
+  hardener_exists    boolean;
+  owner_is_superuser boolean;
+  target_is_super    boolean;
+  target_bypasses    boolean;
+BEGIN
+  SELECT EXISTS (
+    SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'public' AND p.proname = 'ensure_role_hardened'
+  ) INTO hardener_exists;
+
+  IF hardener_exists THEN
+    PERFORM public.ensure_role_hardened('raptor_app');
+  ELSE
+    SELECT rolsuper INTO owner_is_superuser
+    FROM pg_catalog.pg_roles WHERE rolname = current_user;
+
+    IF owner_is_superuser THEN
+      ALTER ROLE raptor_app NOBYPASSRLS;
+      ALTER ROLE raptor_app NOSUPERUSER;
+    ELSE
+      SELECT rolsuper, rolbypassrls INTO target_is_super, target_bypasses
+      FROM pg_catalog.pg_roles WHERE rolname = 'raptor_app';
+
+      IF target_is_super OR target_bypasses THEN
+        RAISE EXCEPTION
+          'role raptor_app must be NOSUPERUSER NOBYPASSRLS (rolsuper=% rolbypassrls=%), and the owner % is not a superuser and cannot change it',
+          target_is_super, target_bypasses, current_user;
+      END IF;
+    END IF;
+  END IF;
+END
+$$;
 
 COMMIT;

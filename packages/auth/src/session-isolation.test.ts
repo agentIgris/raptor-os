@@ -94,7 +94,7 @@ async function asOrg<T>(orgId: string | null, work: () => Promise<T>): Promise<T
 
 /** Count sessions visible on the current connection. */
 async function visibleSessionCount(): Promise<number> {
-  const result = await fixture.appPool.query<{ n: number }>('SELECT count(*)::int AS n FROM "session"');
+  const result = await fixture.appPool.query<{ n: number }>('SELECT count(*)::int AS n FROM "auth_session"');
   return result.rows[0]?.n ?? -1;
 }
 
@@ -124,7 +124,7 @@ beforeEach(async () => {
  */
 async function seedSessionFor(orgId: string, label: string): Promise<string> {
   const user = await fixture.ownerPool.query<{ id: string }>(
-    `INSERT INTO "user" ("name", "email", "emailVerified", "role", "twoFactorEnabled")
+    `INSERT INTO "auth_user" ("name", "email", "emailVerified", "role", "twoFactorEnabled")
      VALUES ($1, $2, true, 'player', false) RETURNING "id"`,
     [`Org ${label} User`, `${label.toLowerCase()}-user@example.invalid`],
   );
@@ -132,7 +132,7 @@ async function seedSessionFor(orgId: string, label: string): Promise<string> {
   if (userId === undefined) throw new Error("seedSessionFor: no user id");
 
   const session = await fixture.ownerPool.query<{ id: string }>(
-    `INSERT INTO "session" ("expiresAt", "token", "userId", "orgId")
+    `INSERT INTO "auth_session" ("expiresAt", "token", "userId", "orgId")
      VALUES (now() + interval '1 hour', $1, $2, $3) RETURNING "id"`,
     [`token-for-${label}`, userId, orgId],
   );
@@ -147,7 +147,7 @@ describe("session is identity, not tenant-scoped (ADR-0017)", () => {
     //
     // The old version of this test asserted `relforcerowsecurity = true` as well.
     // That assertion was correct for the old design and is deliberately inverted
-    // now: FORCE would subject the OWNER to `session_app_role_access`, and
+    // now: FORCE would subject the OWNER to `auth_session_app_role_access`, and
     // `auth_set_active_org` is SECURITY DEFINER and reads through the owner, so
     // FORCING would break the compensating control ADR-0017 requires. The property
     // that still matters — RLS is on, so a role that is not the app role and not
@@ -155,7 +155,7 @@ describe("session is identity, not tenant-scoped (ADR-0017)", () => {
     const result = await fixture.ownerPool.query<{ relrowsecurity: boolean; relforcerowsecurity: boolean }>(
       `SELECT c.relrowsecurity, c.relforcerowsecurity
          FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
-        WHERE n.nspname = 'public' AND c.relname = 'session'`,
+        WHERE n.nspname = 'public' AND c.relname = 'auth_session'`,
     );
 
     expect(result.rows[0]?.relrowsecurity).toBe(true);
@@ -169,11 +169,11 @@ describe("session is identity, not tenant-scoped (ADR-0017)", () => {
     // absence of ANY tenant predicate on the table.
     const result = await fixture.ownerPool.query<{ policyname: string; qual: string | null; with_check: string | null }>(
       `SELECT policyname, qual, with_check FROM pg_policies
-        WHERE schemaname = 'public' AND tablename = 'session'`,
+        WHERE schemaname = 'public' AND tablename = 'auth_session'`,
     );
 
     // Exactly the role policy every identity table carries, and nothing else.
-    expect(result.rows.map((row) => row.policyname)).toEqual(["session_app_role_access"]);
+    expect(result.rows.map((row) => row.policyname)).toEqual(["auth_session_app_role_access"]);
 
     for (const row of result.rows) {
       // Neither the fail-open branch that leaked every tenant's sessions nor any
@@ -189,7 +189,7 @@ describe("session is identity, not tenant-scoped (ADR-0017)", () => {
       `SELECT c.relname, c.relrowsecurity
          FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
         WHERE n.nspname = 'public' AND c.relkind = 'r'
-          AND c.relname IN ('user','session','account','verification','twoFactor','rateLimit')
+          AND c.relname IN ('auth_user','auth_session','auth_account','auth_verification','auth_two_factor','auth_rate_limit')
         ORDER BY c.relname`,
     );
 
@@ -206,7 +206,7 @@ describe("session is identity, not tenant-scoped (ADR-0017)", () => {
     await seedSessionFor(ORG_A, "DefaultDeny");
 
     const seen = await fixture.asAppRole(async () => {
-      const rows = await fixture.appPool.query<{ n: number }>('SELECT count(*)::int AS n FROM "session"');
+      const rows = await fixture.appPool.query<{ n: number }>('SELECT count(*)::int AS n FROM "auth_session"');
       return rows.rows[0]?.n ?? -1;
     });
 
@@ -229,7 +229,7 @@ describe("the application role can still use the identity tables", () => {
 
   it("reads the user table", async () => {
     await seedSessionFor(ORG_A, "UserReadable");
-    const result = await fixture.appPool.query<{ n: number }>('SELECT count(*)::int AS n FROM "user"');
+    const result = await fixture.appPool.query<{ n: number }>('SELECT count(*)::int AS n FROM "auth_user"');
     expect(result.rows[0]?.n).toBeGreaterThan(0);
   });
 });
@@ -282,7 +282,7 @@ describe("the properties the old tenant policy used to provide", () => {
     await seedSessionFor(ORG_A, "NoContext");
 
     const seen = await fixture.asAppRole(async () => {
-      const rows = await fixture.appPool.query<{ n: number }>('SELECT count(*)::int AS n FROM "session"');
+      const rows = await fixture.appPool.query<{ n: number }>('SELECT count(*)::int AS n FROM "auth_session"');
       return rows.rows[0]?.n ?? -1;
     });
 
@@ -312,7 +312,7 @@ describe("the properties the old tenant policy used to provide", () => {
     await seedSessionFor(ORG_A, "Writable");
 
     const updated = await fixture.asAppRole(async () => {
-      const result = await fixture.appPool.query('UPDATE "session" SET "ipAddress" = $1', ["203.0.113.9"]);
+      const result = await fixture.appPool.query('UPDATE "auth_session" SET "ipAddress" = $1', ["203.0.113.9"]);
       return result.rowCount;
     });
 
@@ -326,7 +326,7 @@ describe("the properties the old tenant policy used to provide", () => {
     await seedSessionFor(ORG_A, "Revocable");
 
     const deleted = await fixture.asAppRole(async () => {
-      const result = await fixture.appPool.query('DELETE FROM "session"');
+      const result = await fixture.appPool.query('DELETE FROM "auth_session"');
       return result.rowCount;
     });
 
@@ -401,7 +401,7 @@ describe("a request with no tenant resolved", () => {
     const result = await fixture.ownerPool.query<{ policyname: string; qual: string | null }>(
       `SELECT policyname, qual FROM pg_policies
         WHERE schemaname = 'public'
-          AND tablename IN ('session','user','account','verification','twoFactor','rateLimit')`,
+          AND tablename IN ('auth_session','auth_user','auth_account','auth_verification','auth_two_factor','auth_rate_limit')`,
     );
 
     expect(result.rows.length).toBeGreaterThan(0);
@@ -416,14 +416,14 @@ describe("a request with no tenant resolved", () => {
     // identically, because "bound" is not a visibility concept on this table any
     // more. Both are ordinary identity rows.
     await fixture.ownerPool.query(
-      `INSERT INTO "user" ("name", "email", "emailVerified", "role")
+      `INSERT INTO "auth_user" ("name", "email", "emailVerified", "role")
        VALUES ('Unbound', 'unbound@example.invalid', true, 'player')`,
     );
-    const userId = await fixture.ownerPool.query<{ id: string }>('SELECT "id" FROM "user" WHERE "email" = $1', [
+    const userId = await fixture.ownerPool.query<{ id: string }>('SELECT "id" FROM "auth_user" WHERE "email" = $1', [
       "unbound@example.invalid",
     ]);
     await fixture.ownerPool.query(
-      `INSERT INTO "session" ("expiresAt", "token", "userId", "orgId")
+      `INSERT INTO "auth_session" ("expiresAt", "token", "userId", "orgId")
        VALUES (now() + interval '1 hour', 'unbound-token', $1, NULL)`,
       [userId.rows[0]?.id ?? ""],
     );

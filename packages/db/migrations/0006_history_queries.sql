@@ -454,8 +454,7 @@ REVOKE ALL ON FUNCTION public.guard_staff_window_overlap() FROM PUBLIC;
 -- migration that added a table without re-asserting this would be the one place in
 -- the chain where the property could quietly lapse.
 -- -----------------------------------------------------------------------------
-
-ALTER ROLE raptor_app NOBYPASSRLS;
-ALTER ROLE raptor_app NOSUPERUSER;
+-- Reassert the application role attributes. Portable across self-hosted and managed databases: enforces where the owner is a superuser, verifies otherwise (see ensure_raptor_app_hardened() in 0001_tenancy.sql).
+SELECT ensure_raptor_app_hardened();
 
 COMMIT;

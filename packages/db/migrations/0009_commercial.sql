@@ -2213,9 +2213,8 @@ TO raptor_app;
 
 -- RLS is worthless to a role that can switch it off. Restated at the end of the file, as
 -- 0001, 0002, 0004, 0005, 0006, 0007 and 0008 each do.
-ALTER ROLE raptor_app NOBYPASSRLS;
-ALTER ROLE raptor_app NOSUPERUSER;
-ALTER ROLE raptor_public NOBYPASSRLS;
-ALTER ROLE raptor_public NOSUPERUSER;
+-- Reassert the application role attributes. Portable across self-hosted and managed databases: enforces where the owner is a superuser, verifies otherwise (see ensure_role_hardened(text) in 0001_tenancy.sql).
+SELECT ensure_raptor_app_hardened();
+SELECT ensure_role_hardened('raptor_public');
 
 COMMIT;

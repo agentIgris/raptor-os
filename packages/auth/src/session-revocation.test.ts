@@ -62,12 +62,12 @@ async function createVerifiedUser(email: string): Promise<void> {
   );
   expect([200, 422]).toContain(signUp.status);
 
-  await fixture.ownerPool.query('UPDATE "user" SET "emailVerified" = true WHERE "email" = $1', [email]);
+  await fixture.ownerPool.query('UPDATE "auth_user" SET "emailVerified" = true WHERE "email" = $1', [email]);
 }
 
 /** The user id for an address, for fixtures that need to write verification rows. */
 async function userIdFor(email: string): Promise<string> {
-  const rows = await fixture.ownerPool.query<{ id: string }>('SELECT "id" FROM "user" WHERE "email" = $1', [
+  const rows = await fixture.ownerPool.query<{ id: string }>('SELECT "id" FROM "auth_user" WHERE "email" = $1', [
     email,
   ]);
   const id = rows.rows[0]?.id;
@@ -220,7 +220,7 @@ describe("resetting a password from the emailed link", () => {
     // token must never appear in a test's assertion output.
     const token = "fixture-reset-token-value-0001";
     await fixture.ownerPool.query(
-      `INSERT INTO "verification" ("identifier", "value", "expiresAt")
+      `INSERT INTO "auth_verification" ("identifier", "value", "expiresAt")
        VALUES ($1, $2, now() + interval '30 minutes')`,
       [`reset-password:${token}`, userId],
     );
@@ -235,7 +235,7 @@ describe("resetting a password from the emailed link", () => {
     expect(response.status).toBe(200);
 
     const remaining = await fixture.ownerPool.query<{ n: number }>(
-      'SELECT count(*)::int AS n FROM "session" WHERE "userId" = $1',
+      'SELECT count(*)::int AS n FROM "auth_session" WHERE "userId" = $1',
       [userId],
     );
     expect(remaining.rows[0]?.n).toBe(0);

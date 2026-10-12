@@ -125,6 +125,7 @@ const EXCLUDED_BY_DECISION = [
   "identity",
   "outbox_event",
   "permission",
+  "person_credential_link",
   "portability_import_run",
 ] as const;
 
@@ -448,13 +449,13 @@ describe("the export contract", () => {
     expect(declared.rows.length).toBeGreaterThan(70);
   });
 
-  it("excludes EXACTLY the five tables it documents, and nothing else", async () => {
+  it("excludes EXACTLY the tables it documents, and nothing else", async () => {
     // Every ordinary table in `public`, not merely the tenant ones. The
     // exclusion list spans three shapes — a tenant table (`portability_import_run`),
     // a nullable-org table (`audit_log`, `outbox_event`) and an org-independent
-    // table (`identity`, `consent_record`) — so a check phrased only over tenant
-    // tables would silently pass if somebody added a fourth exclusion of a shape
-    // it did not consider.
+    // table (`identity`, `consent_record`, `person_credential_link`) — so a check
+    // phrased only over tenant tables would silently pass if somebody added a
+    // fourth exclusion of a shape it did not consider.
     const everyTable = await db.query<{ table_name: string }>(`
       SELECT c.relname AS table_name
         FROM pg_class c
@@ -529,7 +530,7 @@ describe("the export contract", () => {
     expect(backwards).toEqual([]);
   });
 
-  it("omits the five tables excluded by decision, and says why in the schema", async () => {
+  it("omits the tables excluded by decision, and says why in the schema", async () => {
     const declared = await db.query<{ table_name: string }>(
       "SELECT table_name FROM public.portability_export_contract()",
     );

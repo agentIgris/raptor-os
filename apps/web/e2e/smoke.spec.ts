@@ -53,8 +53,7 @@ test.describe("public routes", () => {
     expect(unexpected, `unexpected console errors on /sign-in:\n${unexpected.join("\n")}`).toEqual([]);
   });
 
-  test("the password visibility toggle reveals and re-hides the password", async ({ page }) => {
-    await page.goto("/sign-in");
+  test("the password visibility toggle reveals and re-hides the password", async ({ page }) => {    await page.goto("/sign-in");
 
     const password = page.getByLabel("Password");
     const toggle = page.getByRole("button", { name: "Show password" });
@@ -90,6 +89,19 @@ test.describe("public routes", () => {
 
     await page.getByRole("button", { name: "Use system theme" }).click();
     await expect(html).not.toHaveClass(/(\s|^)(light|dark)(\s|$)/);
+  });
+
+  test("offers no Google button without OAuth credentials", async ({ page }) => {
+    // The test environment sets no GOOGLE_CLIENT_ID/SECRET, so the server must
+    // not render the button. A button that starts an OAuth flow with no
+    // credential behind it strands the user on Google's error page — absence
+    // here is the asserted behavior, not a gap in coverage. Presence with real
+    // credentials is exercised manually, because CI must never hold an OAuth
+    // client secret.
+    await page.goto("/sign-in");
+
+    await expect(page.getByLabel("Email address")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Continue with Google" })).toHaveCount(0);
   });
 });
 

@@ -53,7 +53,6 @@ import {
 } from "better-auth";
 import { twoFactor } from "better-auth/plugins";
 import { createAuthMiddleware } from "better-auth/api";
-
 import {
   accountCounterKey,
   clearAccountFailures,
@@ -770,6 +769,34 @@ export function buildAuthOptions(env: AuthEnv, database: AuthDatabase): BetterAu
       after: afterRequestGate,
     },
 
+    /**
+     * "Sign in with Google", env-gated.
+     *
+     * The block is present ONLY when both `GOOGLE_CLIENT_ID` and
+     * `GOOGLE_CLIENT_SECRET` are set (`env.ts` refuses a half-configured pair,
+     * so reaching here with one set is impossible). Without credentials there is
+     * no provider entry at all — not a disabled one — because a visible Google
+     * button that dies on Google's error page is worse than no button, and a
+     * configured-but-empty provider is how a `clientId: ""` ends up in a log.
+     *
+     * `accessType: "offline"` requests a refresh token so the link survives
+     * beyond the first hour; `prompt: "select_account consent"` forces the
+     * account chooser every time, so a shared tournament machine cannot
+     * one-click into the previous user's Google session.
+     */
+    ...(env.googleClientId !== undefined && env.googleClientSecret !== undefined
+      ? {
+          socialProviders: {
+            google: {
+              clientId: env.googleClientId,
+              clientSecret: env.googleClientSecret,
+              accessType: "offline",
+              prompt: "select_account consent",
+            },
+          },
+        }
+      : {}),
+
     emailAndPassword: {
       enabled: true,
       /** No self-service sign-in until the address is proven. */
@@ -824,6 +851,14 @@ export function buildAuthOptions(env: AuthEnv, database: AuthDatabase): BetterAu
     },
 
     session: {
+      /**
+       * Physical table `auth_session`, not `session`. `session` already names the
+       * training-session table in `packages/db` 0002, and both schemas share one
+       * Postgres schema — the unprefixed name made `CREATE TABLE IF NOT EXISTS`
+       * a silent no-op and broke the combined apply. Model name stays `session`,
+       * so every adapter call site is unchanged; see the note on `user.modelName`.
+       */
+      modelName: "auth_session",
       expiresIn: SESSION_EXPIRES_IN_SECONDS,
       updateAge: SESSION_UPDATE_AGE_SECONDS,
       /**
@@ -870,6 +905,13 @@ export function buildAuthOptions(env: AuthEnv, database: AuthDatabase): BetterAu
 
     rateLimit: {
       /**
+       * Physical table `auth_rate_limit`. Same collision class as
+       * `session.modelName`: bare words belong to no domain. Model name stays
+       * `rateLimit`, so `account-lockout.ts` and its `RATE_LIMIT_MODEL` constant
+       * keep working unchanged.
+       */
+      modelName: "auth_rate_limit",
+      /**
        * Better Auth defaults this to production-only. A local or preview
        * deployment is exactly where credential stuffing is rehearsed, so it is
        * explicitly enabled in every environment.
@@ -900,6 +942,17 @@ export function buildAuthOptions(env: AuthEnv, database: AuthDatabase): BetterAu
       twoFactor({
         issuer: "Raptor OS",
         /**
+         * Physical table `auth_two_factor`. The plugin owns this model's schema;
+         * without the override it falls back to the bare `twoFactor` name. The
+         * override is keyed by model (`{ twoFactor: { modelName } }`), not a
+         * bare `modelName`, because the plugin schema covers two models.
+         */
+        schema: {
+          twoFactor: {
+            modelName: "auth_two_factor",
+          },
+        },
+        /**
          * `skipVerificationOnEnable: false` keeps the default. When true,
          * enabling MFA flips the flag *without* the user ever proving they hold
          * the secret — which would make "MFA enabled" a value a user can set
@@ -916,6 +969,13 @@ export function buildAuthOptions(env: AuthEnv, database: AuthDatabase): BetterAu
     ],
 
     user: {
+      /**
+       * Physical table `auth_user`. Model name stays `user`, so adapter call
+       * sites (`model: "user"`) are unchanged. Rationale for the whole mapping
+       * is on `session.modelName`; this entry exists so the set is complete and
+       * no model silently falls back to a bare table name.
+       */
+      modelName: "auth_user",
       additionalFields: {
         /**
          * THE FIX FOR F-AUTH-03 AND THE CLIENT-SUPPLIED-ROLE DEFECT.
@@ -941,6 +1001,22 @@ export function buildAuthOptions(env: AuthEnv, database: AuthDatabase): BetterAu
           defaultValue: "pending",
         },
       },
+    },
+
+    /**
+     * Physical tables `auth_account` and `auth_verification`. Neither block
+     * existed before the `session` collision forced the rename, because neither
+     * model needed options of its own — but omitting them would leave exactly
+     * the two models that silently fall back to bare table names, which is the
+     * defect this mapping exists to remove. `account` in particular would
+     * collide with a future domain `account` table (ledger-adjacent naming) the
+     * same way `session` collided with training sessions.
+     */
+    account: {
+      modelName: "auth_account",
+    },
+    verification: {
+      modelName: "auth_verification",
     },
   };
 }

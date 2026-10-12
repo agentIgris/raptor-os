@@ -333,8 +333,10 @@ BEGIN
 END
 $sys$;
 
-ALTER ROLE raptor_system NOSUPERUSER;
-ALTER ROLE raptor_system NOBYPASSRLS;
+-- Portable like ensure_raptor_app_hardened(): enforce where the owner is a superuser,
+-- verify otherwise (see ensure_role_hardened(text) in 0001_tenancy.sql). A managed
+-- database refuses ALTER ROLE against another role's elevation attributes.
+SELECT ensure_role_hardened('raptor_system');
 
 -- ENVIRONMENT TRAP, RECORDED SO THE NEXT MIGRATION DOES NOT RE-DISCOVER IT.
 -- `ALTER TABLE ... DROP POLICY` is a PARSE-LEVEL FAILURE in this PGlite build

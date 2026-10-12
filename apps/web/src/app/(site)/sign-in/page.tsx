@@ -22,6 +22,14 @@ export const dynamic = "force-dynamic";
  */
 export default async function SignInPage(): Promise<React.JSX.Element> {
   const session = await getCurrentSession();
+  // Server-side feature flag, read from the server's own environment — never
+  // exposed to the client as a value. The button renders only when both halves
+  // of the credential are present, matching the auth package's rule that a
+  // half-configured provider is refused rather than half-enabled. A client-side
+  // check would itself be the leak (it would need the secret to be complete).
+  const googleEnabled =
+    (process.env["GOOGLE_CLIENT_ID"] ?? "").trim() !== "" &&
+    (process.env["GOOGLE_CLIENT_SECRET"] ?? "").trim() !== "";
 
   return (
     <div className="mx-auto flex w-full max-w-[32rem] min-w-0 flex-col gap-4 py-4">
@@ -43,7 +51,7 @@ export default async function SignInPage(): Promise<React.JSX.Element> {
         </CardHeader>
         <CardContent className="flex min-w-0 flex-col gap-6">
           {session === null ? (
-            <SignInForm callbackUrl="/dashboard" />
+            <SignInForm callbackUrl="/dashboard" googleEnabled={googleEnabled} />
           ) : (
             <Alert tone="success">
               <p className="text-[length:var(--text-sm)] leading-[var(--leading-normal)] break-words">

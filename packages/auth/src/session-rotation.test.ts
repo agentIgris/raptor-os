@@ -59,7 +59,7 @@ async function ensureVerifiedUser(email: string): Promise<void> {
   );
   expect([200, 422]).toContain(signUp.status);
 
-  await fixture.ownerPool.query('UPDATE "user" SET "emailVerified" = true WHERE "email" = $1', [email]);
+  await fixture.ownerPool.query('UPDATE "auth_user" SET "emailVerified" = true WHERE "email" = $1', [email]);
 }
 
 /** The raw session-token cookie value held by a browser, without the `Cookie: ` prefix. */
@@ -111,7 +111,7 @@ function sessionCookieFromSetCookie(headers: readonly string[]): string | null {
  */
 async function ageSessionIntoTheRefreshWindow(): Promise<void> {
   const secondsRemaining = SESSION_EXPIRES_IN_SECONDS - SESSION_UPDATE_AGE_SECONDS - 60;
-  await fixture.ownerPool.query('UPDATE "session" SET "expiresAt" = now() + ($1::text || \' seconds\')::interval', [
+  await fixture.ownerPool.query('UPDATE "auth_session" SET "expiresAt" = now() + ($1::text || \' seconds\')::interval', [
     String(secondsRemaining),
   ]);
 }
@@ -134,7 +134,7 @@ describe("a session inside the refresh window", () => {
     await ensureVerifiedUser(email);
     const original = await signInAndCaptureCookie(fixture.auth, email);
 
-    const before = await fixture.ownerPool.query<{ token: string }>('SELECT "token" FROM "session"');
+    const before = await fixture.ownerPool.query<{ token: string }>('SELECT "token" FROM "auth_session"');
     const tokenBefore = before.rows[0]?.token;
     if (tokenBefore === undefined) throw new Error("no session row after sign-in");
 
@@ -148,7 +148,7 @@ describe("a session inside the refresh window", () => {
     // refresh, so its value changes whether or not the token underneath it does;
     // asserting on the cookie would pass against the broken implementation,
     // which is how this defect stayed invisible behind a green suite.
-    const after = await fixture.ownerPool.query<{ token: string }>('SELECT "token" FROM "session"');
+    const after = await fixture.ownerPool.query<{ token: string }>('SELECT "token" FROM "auth_session"');
     expect(after.rows[0]?.token).not.toBe(tokenBefore);
   });
 
@@ -201,7 +201,7 @@ describe("a session inside the refresh window", () => {
     await getSessionViaHandler(original.cookieHeader);
 
     const rows = await fixture.ownerPool.query<{ n: number }>(
-      'SELECT count(*)::int AS n FROM "session"',
+      'SELECT count(*)::int AS n FROM "auth_session"',
     );
     expect(rows.rows[0]?.n).toBe(1);
   });
@@ -236,7 +236,7 @@ describe("a session that is not yet due for a refresh", () => {
     await ensureVerifiedUser(email);
     const original = await signInAndCaptureCookie(fixture.auth, email);
 
-    await fixture.ownerPool.query('DELETE FROM "session"');
+    await fixture.ownerPool.query('DELETE FROM "auth_session"');
 
     const response = await getSessionViaHandler(original.cookieHeader);
     expect(response.status).toBe(200);

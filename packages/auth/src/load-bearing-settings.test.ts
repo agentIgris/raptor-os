@@ -65,7 +65,7 @@ async function createLoginableUser(
   twoFactorEnabled: boolean,
   bypassMfaGuard: boolean,
 ): Promise<string> {
-  if (bypassMfaGuard) await fixture.ownerPool.query('ALTER TABLE "user" DISABLE TRIGGER user_mfa_guard_trigger');
+  if (bypassMfaGuard) await fixture.ownerPool.query('ALTER TABLE "auth_user" DISABLE TRIGGER user_mfa_guard_trigger');
   try {
     const signUp = await fixture.auth.handler(
       new Request(`${BASE_URL}/api/auth/sign-up/email`, {
@@ -77,14 +77,14 @@ async function createLoginableUser(
     expect([200, 422]).toContain(signUp.status);
 
     await fixture.ownerPool.query(
-      'UPDATE "user" SET "emailVerified" = true, "role" = $2, "twoFactorEnabled" = $3 WHERE "email" = $1',
+      'UPDATE "auth_user" SET "emailVerified" = true, "role" = $2, "twoFactorEnabled" = $3 WHERE "email" = $1',
       [email, role, twoFactorEnabled],
     );
   } finally {
-    if (bypassMfaGuard) await fixture.ownerPool.query('ALTER TABLE "user" ENABLE TRIGGER user_mfa_guard_trigger');
+    if (bypassMfaGuard) await fixture.ownerPool.query('ALTER TABLE "auth_user" ENABLE TRIGGER user_mfa_guard_trigger');
   }
 
-  const rows = await fixture.ownerPool.query<{ id: string }>('SELECT "id" FROM "user" WHERE "email" = $1', [
+  const rows = await fixture.ownerPool.query<{ id: string }>('SELECT "id" FROM "auth_user" WHERE "email" = $1', [
     email,
   ]);
   const id = rows.rows[0]?.id;
@@ -122,8 +122,8 @@ async function enrolInTotp(
   );
   expect(enable.status).toBe(200);
 
-  await fixture.ownerPool.query('UPDATE "twoFactor" SET "verified" = true WHERE "userId" = $1', [userId]);
-  await fixture.ownerPool.query('UPDATE "user" SET "twoFactorEnabled" = true WHERE "id" = $1', [userId]);
+  await fixture.ownerPool.query('UPDATE "auth_two_factor" SET "verified" = true WHERE "userId" = $1', [userId]);
+  await fixture.ownerPool.query('UPDATE "auth_user" SET "twoFactorEnabled" = true WHERE "id" = $1', [userId]);
   void email;
 }
 
@@ -180,7 +180,7 @@ describe("the databaseHook MFA gate, with the response hook removed", () => {
     // it answers AFTER the session row exists, so a response-only assertion
     // cannot tell the two apart. A gate that refuses before the INSERT leaves
     // nothing behind; a gate that refuses after it does not.
-    const rows = await fixture.ownerPool.query<{ n: number }>('SELECT count(*)::int AS n FROM "session"');
+    const rows = await fixture.ownerPool.query<{ n: number }>('SELECT count(*)::int AS n FROM "auth_session"');
     expect(rows.rows[0]?.n).toBe(0);
   });
 
@@ -211,7 +211,7 @@ describe("the after-hook MFA gate", () => {
     // and something upstream stopped firing.
     expect(response.status).toBe(401);
 
-    const rows = await fixture.ownerPool.query<{ n: number }>('SELECT count(*)::int AS n FROM "session"');
+    const rows = await fixture.ownerPool.query<{ n: number }>('SELECT count(*)::int AS n FROM "auth_session"');
     expect(rows.rows[0]?.n).toBe(0);
   });
 
@@ -323,7 +323,7 @@ describe("skipVerificationOnEnable", () => {
 
     const rows = await fixture.ownerPool.query<{ enabled: boolean | null; verified: boolean | null }>(
       `SELECT u."twoFactorEnabled" AS enabled, t."verified" AS verified
-         FROM "user" u JOIN "twoFactor" t ON t."userId" = u."id"
+         FROM "auth_user" u JOIN "auth_two_factor" t ON t."userId" = u."id"
         WHERE u."email" = $1`,
       ["totp-unverified@example.invalid"],
     );
@@ -377,7 +377,7 @@ describe("the MFA accountLockout", () => {
 
     const rows = await fixture.ownerPool.query<{ failed: number | null; locked: Date | null }>(
       `SELECT t."failedVerificationCount" AS failed, t."lockedUntil" AS locked
-         FROM "twoFactor" t JOIN "user" u ON u."id" = t."userId"
+         FROM "auth_two_factor" t JOIN "auth_user" u ON u."id" = t."userId"
         WHERE u."email" = $1`,
       [email],
     );

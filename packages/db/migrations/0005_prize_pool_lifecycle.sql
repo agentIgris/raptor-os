@@ -258,8 +258,7 @@ REVOKE UPDATE ON prize_pool FROM raptor_app;
 GRANT UPDATE (status, settled_at, settled_by_person_id) ON prize_pool TO raptor_app;
 
 REVOKE ALL ON FUNCTION public.assert_pool_is_settled() FROM PUBLIC;
-
-ALTER ROLE raptor_app NOBYPASSRLS;
-ALTER ROLE raptor_app NOSUPERUSER;
+-- Reassert the application role attributes. Portable across self-hosted and managed databases: enforces where the owner is a superuser, verifies otherwise (see ensure_raptor_app_hardened() in 0001_tenancy.sql).
+SELECT ensure_raptor_app_hardened();
 
 COMMIT;

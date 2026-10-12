@@ -286,6 +286,24 @@ export interface AuthEnv {
   readonly baseUrl: string;
   /** `raptor_app` connection string. Never the migrator. */
   readonly databaseUrl: string;
+  /**
+   * Google OAuth client ID for "Sign in with Google".
+   *
+   * `undefined` when unset, in which case Google sign-in is not offered: the
+   * provider block is omitted from the Better Auth options entirely rather than
+   * configured with an empty credential, because an OAuth flow that starts and
+   * cannot complete strands the user on Google's error page with no way back.
+   * Obtained from the Google Cloud Console (APIs & Services → Credentials →
+   * OAuth client ID, application type "Web application").
+   */
+  readonly googleClientId: string | undefined;
+  /**
+   * Google OAuth client secret. Never log this. Same optionality contract as
+   * {@link AuthEnv.googleClientId}: both set or Google sign-in stays off. A
+   * client ID without its secret (or vice versa) is a refused configuration,
+   * not a half-enabled provider.
+   */
+  readonly googleClientSecret: string | undefined;
   /** `"production"` when `NODE_ENV` is production, else `"development"`. */
   readonly nodeEnv: "development" | "production" | "test";
   /**
@@ -446,6 +464,28 @@ export function readAuthEnv(env: Readonly<Record<string, string | undefined>>): 
   const databaseUrl = resolved.get("DATABASE_URL")?.value ?? DEFAULT_APP_DATABASE_URL;
   assertNotMigrationCredential(databaseUrl);
 
+  // Optional entries are read WITHOUT trimming-to-required: an absent variable
+  // and an empty one both mean "not configured", and neither is an error. The
+  // caller decides whether absence disables a feature (Google sign-in) or is
+  // itself refused (a half-configured provider).
+  const optionalEntry = (name: string): string | undefined => {
+    const raw = env[name];
+    if (raw === undefined || raw.trim() === "") return undefined;
+    return raw.trim();
+  };
+
+  // A client ID without its secret (or vice versa) is a refused configuration,
+  // not a half-enabled provider. An OAuth flow with one half of its credential
+  // starts at Google and dies there, stranding the user outside the app with an
+  // error page that names nothing actionable.
+  const googleClientId = optionalEntry("GOOGLE_CLIENT_ID");
+  const googleClientSecret = optionalEntry("GOOGLE_CLIENT_SECRET");
+  if ((googleClientId === undefined) !== (googleClientSecret === undefined)) {
+    throw new AuthEnvironmentError([
+      "GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET must both be set, or neither",
+    ]);
+  }
+
   const rawNodeEnv = env["NODE_ENV"] ?? "development";
   const nodeEnv: AuthEnv["nodeEnv"] =
     rawNodeEnv === "production" ? "production" : rawNodeEnv === "test" ? "test" : "development";
@@ -454,6 +494,8 @@ export function readAuthEnv(env: Readonly<Record<string, string | undefined>>): 
     secret,
     baseUrl: requiredEntry("BETTER_AUTH_URL"),
     databaseUrl,
+    googleClientId,
+    googleClientSecret,
     nodeEnv,
     trustedIpHeaders: splitList(env[TRUSTED_IP_HEADERS_VARIABLE]),
     trustedProxies: splitList(env[TRUSTED_PROXIES_VARIABLE]),

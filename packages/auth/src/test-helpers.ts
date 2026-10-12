@@ -17,7 +17,7 @@
  *   - a revoked session must be rejected, which is the absence of a row after a
  *     `DELETE`;
  *   - rate limiting must engage, which is a counter surviving in the
- *     `"rateLimit"` table across requests;
+ *     `"auth_rate_limit"` table across requests;
  *   - `user_mfa_guard_trigger` must reject a privileged row without TOTP, which
  *     is a `RAISE EXCEPTION` inside a `BEFORE` trigger, surfacing as SQLSTATE
  *     `23514`;
@@ -143,7 +143,7 @@ export async function createAuthFixture(options: { truncate?: boolean } = {}): P
  */
 export async function truncateAuthTables(database: AuthTestDatabase): Promise<void> {
   await database.ownerPool.query(
-    'TRUNCATE TABLE "user", "session", "account", "verification", "twoFactor", "rateLimit" RESTART IDENTITY CASCADE',
+    'TRUNCATE TABLE "auth_user", "auth_session", "auth_account", "auth_verification", "auth_two_factor", "auth_rate_limit" RESTART IDENTITY CASCADE',
   );
 }
 
@@ -168,7 +168,7 @@ export async function seedUser(
   input: { email: string; role: string; twoFactorEnabled: boolean; name?: string },
 ): Promise<SeededUser> {
   const result = await pool.query<SeededUser>(
-    `INSERT INTO "user" ("name", "email", "emailVerified", "role", "twoFactorEnabled")
+    `INSERT INTO "auth_user" ("name", "email", "emailVerified", "role", "twoFactorEnabled")
      VALUES ($1, $2, true, $3, $4)
      RETURNING "id", "email", "role", "twoFactorEnabled"`,
     [input.name ?? "Test User", input.email, input.role, input.twoFactorEnabled],

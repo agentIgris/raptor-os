@@ -41,7 +41,7 @@ import { createTestDatabase, type AuthTestDatabase } from "./test-database.js";
 const ORG_A = "11111111-1111-4111-8111-111111111111";
 const ORG_B = "22222222-2222-4222-8222-222222222222";
 
-const AUTH_TABLES = ["user", "session", "account", "verification", "twoFactor", "rateLimit"] as const;
+const AUTH_TABLES = ["auth_user", "auth_session", "auth_account", "auth_verification", "auth_two_factor", "auth_rate_limit"] as const;
 
 let fixture: AuthTestDatabase;
 
@@ -104,16 +104,16 @@ describe("no auth table carries a tenant predicate (ADR-0017)", () => {
 
   it("protects session by role, exactly as it does every other identity table", async () => {
     const rows = await policies();
-    const sessionPolicy = rows.find((row) => row.tablename === "session");
+    const sessionPolicy = rows.find((row) => row.tablename === "auth_session");
 
-    // The compensating role check. Same predicate as "user" and friends: it grants
+    // The compensating role check. Same predicate as "auth_user" and friends: it grants
     // the application role its DML and nobody else, and grants no organisation
     // anything.
-    expect(sessionPolicy?.policyname).toBe("session_app_role_access");
+    expect(sessionPolicy?.policyname).toBe("auth_session_app_role_access");
     // The parser folds the unreserved keyword to upper case, hence the `i` flag.
     expect(sessionPolicy?.qual).toMatch(/session_user/i);
 
-    const userPolicy = rows.find((row) => row.tablename === "user");
+    const userPolicy = rows.find((row) => row.tablename === "auth_user");
     expect(sessionPolicy?.qual).toBe(userPolicy?.qual);
   });
 
@@ -127,7 +127,7 @@ describe("no auth table carries a tenant predicate (ADR-0017)", () => {
          FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
         WHERE n.nspname = 'public' AND c.relname = ANY($1)
         ORDER BY c.relname`,
-      [["session"]],
+      [["auth_session"]],
     );
 
     expect(result.rows[0]?.relrowsecurity).toBe(true);
@@ -210,7 +210,7 @@ describe("compensating control 2 — the active org requires a real membership",
            FROM information_schema.column_privileges
           WHERE grantee = 'raptor_app'
             AND table_schema = 'public'
-            AND table_name = 'session'
+            AND table_name = 'auth_session'
             AND privilege_type = 'UPDATE'
           ORDER BY column_name`,
       );
@@ -220,29 +220,29 @@ describe("compensating control 2 — the active org requires a real membership",
       expect(granted.rows.map((row) => row.column_name)).toContain("expiresAt");
 
       const user = await fixture.db.query<{ id: string }>(
-        `INSERT INTO "user" ("name", "email", "emailVerified", "role")
+        `INSERT INTO "auth_user" ("name", "email", "emailVerified", "role")
          VALUES ('Direct', 'direct@example.invalid', true, 'player') RETURNING "id"`,
       );
       await fixture.db.query(
-        `INSERT INTO "session" ("expiresAt", "token", "userId")
+        `INSERT INTO "auth_session" ("expiresAt", "token", "userId")
          VALUES (now() + interval '1 hour', 'direct-token', $1)`,
         [user.rows[0]?.id ?? ""],
       );
 
       // And the refusal is real, not merely absent from the catalogue.
       await expect(
-        fixture.appPool.query('UPDATE "session" SET "orgId" = $1 WHERE "token" = $2', [ORG_A, "direct-token"]),
+        fixture.appPool.query('UPDATE "auth_session" SET "orgId" = $1 WHERE "token" = $2', [ORG_A, "direct-token"]),
       ).rejects.toThrow();
 
       const stored = await fixture.db.query<{ orgId: string | null }>(
-        `SELECT "orgId" FROM "session" WHERE "token" = 'direct-token'`,
+        `SELECT "orgId" FROM "auth_session" WHERE "token" = 'direct-token'`,
       );
       expect(stored.rows[0]?.orgId ?? null).toBeNull();
 
       // Control: the app role CAN still do the expiry refresh it legitimately
       // needs, so the restriction is targeted rather than a blanket denial that
       // would have broken session refresh in production.
-      const refreshed = await fixture.appPool.query('UPDATE "session" SET "expiresAt" = $1 WHERE "token" = $2', [
+      const refreshed = await fixture.appPool.query('UPDATE "auth_session" SET "expiresAt" = $1 WHERE "token" = $2', [
         new Date(Date.now() + 7_200_000).toISOString(),
         "direct-token",
       ]);
@@ -271,13 +271,13 @@ describe("compensating control 2 — the active org requires a real membership",
     }
 
     const user = await fixture.ownerPool.query<{ id: string }>(
-      `INSERT INTO "user" ("name", "email", "emailVerified", "role")
+      `INSERT INTO "auth_user" ("name", "email", "emailVerified", "role")
        VALUES ('Unmember', 'unmember@example.invalid', true, 'player') RETURNING "id"`,
     );
     const userId = user.rows[0]?.id ?? "";
 
     const session = await fixture.ownerPool.query<{ id: string }>(
-      `INSERT INTO "session" ("expiresAt", "token", "userId")
+      `INSERT INTO "auth_session" ("expiresAt", "token", "userId")
        VALUES (now() + interval '1 hour', 'unmember-token', $1) RETURNING "id"`,
       [userId],
     );
@@ -294,23 +294,23 @@ describe("compensating control 2 — the active org requires a real membership",
 
     // And nothing was written: an unbound session stays unbound.
     const stored = await fixture.ownerPool.query<{ orgId: string | null }>(
-      `SELECT "orgId" FROM "session" WHERE "token" = 'unmember-token'`,
+      `SELECT "orgId" FROM "auth_session" WHERE "token" = 'unmember-token'`,
     );
     expect(stored.rows[0]?.orgId ?? null).toBeNull();
   });
 
   it("leaves orgId NULL on every session Better Auth creates", async () => {
-    // Sign-in works again now that "session" is not tenant-scoped, and it does so
+    // Sign-in works again now that "auth_session" is not tenant-scoped, and it does so
     // without inventing a tenant: `input: false` means Better Auth never sends
     // `orgId`, so the column stays NULL until a server-side decision is made.
     const signUp = await fixture.appPool.query<{ id: string }>(
-      `INSERT INTO "user" ("name", "email", "emailVerified", "role")
+      `INSERT INTO "auth_user" ("name", "email", "emailVerified", "role")
        VALUES ('Bootstrap', 'bootstrap-org@example.invalid', true, 'player') RETURNING "id"`,
     );
     const userId = signUp.rows[0]?.id ?? "";
 
     const created = await fixture.appPool.query<{ id: string }>(
-      `INSERT INTO "session" ("expiresAt", "token", "userId")
+      `INSERT INTO "auth_session" ("expiresAt", "token", "userId")
        VALUES (now() + interval '1 hour', 'bootstrap-org-token', $1) RETURNING "id"`,
       [userId],
     );
@@ -320,7 +320,7 @@ describe("compensating control 2 — the active org requires a real membership",
     expect(created.rows[0]?.id).toBeDefined();
 
     const stored = await fixture.ownerPool.query<{ orgId: string | null }>(
-      `SELECT "orgId" FROM "session" WHERE "token" = 'bootstrap-org-token'`,
+      `SELECT "orgId" FROM "auth_session" WHERE "token" = 'bootstrap-org-token'`,
     );
     expect(stored.rows[0]?.orgId ?? null).toBeNull();
   });
@@ -409,7 +409,7 @@ describe("compensating control 3 — a session's orgId is a value, not a grant",
     // And the value itself is a client-invisible label: two orgs are just two
     // strings on the column, with no privileges attached to either.
     const distinct = await fixture.ownerPool.query<{ orgid: string | null }>(
-      `SELECT DISTINCT "orgId" FROM "session" WHERE "orgId" IS NOT NULL`,
+      `SELECT DISTINCT "orgId" FROM "auth_session" WHERE "orgId" IS NOT NULL`,
     );
     expect(distinct.rows.length).toBeLessThanOrEqual(1);
 

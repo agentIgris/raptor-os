@@ -32,7 +32,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const SCHEMA_PATH = join(here, "schema.sql");
 
 /** Tables Better Auth's option set expects, derived from the installed package. */
-const EXPECTED_TABLES = ["user", "session", "account", "verification", "twoFactor", "rateLimit"] as const;
+const EXPECTED_TABLES = ["auth_user", "auth_session", "auth_account", "auth_verification", "auth_two_factor", "auth_rate_limit"] as const;
 
 let fixture: AuthTestFixture;
 let schemaSql: string;
@@ -51,7 +51,7 @@ describe("the role vocabulary agrees across every place it is written", () => {
     const result = await fixture.ownerPool.query<{ pg_get_constraintdef: string }>(
       `SELECT pg_get_constraintdef(oid) AS pg_get_constraintdef
        FROM pg_constraint
-       WHERE conname = 'user_role_membership_check' AND conrelid = '"user"'::regclass`,
+       WHERE conname = 'user_role_membership_check' AND conrelid = '"auth_user"'::regclass`,
     );
 
     const definition = result.rows[0]?.pg_get_constraintdef;
@@ -120,7 +120,7 @@ describe("Better Auth's expected columns exist with the expected types", () => {
    * wire; a tidied-up snake_case schema would fail at the first query.
    */
   const EXPECTED_COLUMNS: Readonly<Record<string, Readonly<Record<string, string>>>> = {
-    user: {
+    auth_user: {
       id: "uuid",
       name: "text",
       email: "text",
@@ -131,7 +131,7 @@ describe("Better Auth's expected columns exist with the expected types", () => {
       twoFactorEnabled: "boolean",
       role: "text",
     },
-    session: {
+    auth_session: {
       id: "uuid",
       expiresAt: "timestamp with time zone",
       token: "text",
@@ -142,7 +142,7 @@ describe("Better Auth's expected columns exist with the expected types", () => {
       userId: "uuid",
       orgId: "text",
     },
-    account: {
+    auth_account: {
       id: "uuid",
       accountId: "text",
       providerId: "text",
@@ -157,7 +157,7 @@ describe("Better Auth's expected columns exist with the expected types", () => {
       createdAt: "timestamp with time zone",
       updatedAt: "timestamp with time zone",
     },
-    verification: {
+    auth_verification: {
       id: "uuid",
       identifier: "text",
       value: "text",
@@ -165,7 +165,7 @@ describe("Better Auth's expected columns exist with the expected types", () => {
       createdAt: "timestamp with time zone",
       updatedAt: "timestamp with time zone",
     },
-    twoFactor: {
+    auth_two_factor: {
       id: "uuid",
       secret: "text",
       backupCodes: "text",
@@ -174,7 +174,7 @@ describe("Better Auth's expected columns exist with the expected types", () => {
       failedVerificationCount: "integer",
       lockedUntil: "timestamp with time zone",
     },
-    rateLimit: {
+    auth_rate_limit: {
       id: "uuid",
       key: "text",
       count: "integer",
@@ -205,7 +205,7 @@ describe("constraints exist", () => {
     const result = await fixture.ownerPool.query<{ n: number }>(
       `SELECT count(*)::int AS n
        FROM pg_constraint
-       WHERE conrelid = '"user"'::regclass AND contype = 'u'
+       WHERE conrelid = '"auth_user"'::regclass AND contype = 'u'
          AND pg_get_constraintdef(oid) LIKE '%email%'`,
     );
 
@@ -216,19 +216,19 @@ describe("constraints exist", () => {
     const result = await fixture.ownerPool.query<{ n: number }>(
       `SELECT count(*)::int AS n
        FROM pg_constraint
-       WHERE conrelid = '"session"'::regclass AND contype = 'u'
+       WHERE conrelid = '"auth_session"'::regclass AND contype = 'u'
          AND pg_get_constraintdef(oid) LIKE '%token%'`,
     );
 
     expect(result.rows[0]?.n).toBeGreaterThanOrEqual(1);
   });
 
-  it("cascades deletes from user to session and account", async () => {
+  it("cascades deletes from auth_user to auth_session and auth_account", async () => {
     // Deleting an account must not orphan live sessions; an orphaned session is a
     // credential with no owner to revoke it.
     const result = await fixture.ownerPool.query<{ conname: string; confdeltype: string }>(
       `SELECT conname, confdeltype FROM pg_constraint
-       WHERE contype = 'f' AND confrelid = '"user"'::regclass`,
+       WHERE contype = 'f' AND confrelid = '"auth_user"'::regclass`,
     );
 
     expect(result.rows.length).toBeGreaterThanOrEqual(2);
@@ -238,13 +238,13 @@ describe("constraints exist", () => {
   });
 
   it.each([
-    ["user_role_membership_check", '"user"'],
-    ["user_email_normalised_check", '"user"'],
-    ["session_expiry_after_creation_check", '"session"'],
-    ["account_provider_id_present_check", '"account"'],
-    ["two_factor_failed_count_nonnegative_check", '"twoFactor"'],
-    ["two_factor_lock_requires_failures_check", '"twoFactor"'],
-    ["rate_limit_count_nonnegative_check", '"rateLimit"'],
+    ["user_role_membership_check", '"auth_user"'],
+    ["user_email_normalised_check", '"auth_user"'],
+    ["session_expiry_after_creation_check", '"auth_session"'],
+    ["account_provider_id_present_check", '"auth_account"'],
+    ["two_factor_failed_count_nonnegative_check", '"auth_two_factor"'],
+    ["two_factor_lock_requires_failures_check", '"auth_two_factor"'],
+    ["rate_limit_count_nonnegative_check", '"auth_rate_limit"'],
   ])("installs %s", async (constraint, table) => {
     const result = await fixture.ownerPool.query<{ n: number }>(
       "SELECT count(*)::int AS n FROM pg_constraint WHERE conname = $1 AND conrelid = $2::regclass",
@@ -266,7 +266,7 @@ describe("the twoFactor lock constraint matches what Better Auth actually writes
   // `accountLockout` was inert. These two tests are the regression.
   it("permits a verified enrolment to be locked, which is the state the plugin writes", async () => {
     const user = await fixture.ownerPool.query<{ id: string }>(
-      `INSERT INTO "user" ("name", "email", "emailVerified", "role", "twoFactorEnabled")
+      `INSERT INTO "auth_user" ("name", "email", "emailVerified", "role", "twoFactorEnabled")
        VALUES ('Lock Tester', 'lockable@example.invalid', true, 'player', true)
        RETURNING "id"`,
     );
@@ -274,7 +274,7 @@ describe("the twoFactor lock constraint matches what Better Auth actually writes
     if (userId === undefined) throw new Error("fixture user row missing");
 
     const inserted = await fixture.ownerPool.query<{ lockedUntil: Date | null }>(
-      `INSERT INTO "twoFactor" ("secret", "backupCodes", "userId", "verified",
+      `INSERT INTO "auth_two_factor" ("secret", "backupCodes", "userId", "verified",
                                 "failedVerificationCount", "lockedUntil")
        VALUES ($1, $2, $3, true, 5, now() + interval '15 minutes')
        RETURNING "lockedUntil"`,
@@ -287,7 +287,7 @@ describe("the twoFactor lock constraint matches what Better Auth actually writes
   it("refuses a lock with no failures behind it", async () => {
     // The invariant that replaced the broken one: a lock must be explained.
     const user = await fixture.ownerPool.query<{ id: string }>(
-      `INSERT INTO "user" ("name", "email", "emailVerified", "role", "twoFactorEnabled")
+      `INSERT INTO "auth_user" ("name", "email", "emailVerified", "role", "twoFactorEnabled")
        VALUES ('Lock Tester', 'unexplained-lock@example.invalid', true, 'player', true)
        RETURNING "id"`,
     );
@@ -297,7 +297,7 @@ describe("the twoFactor lock constraint matches what Better Auth actually writes
     let code: string | null = null;
     try {
       await fixture.ownerPool.query(
-        `INSERT INTO "twoFactor" ("secret", "backupCodes", "userId", "verified",
+        `INSERT INTO "auth_two_factor" ("secret", "backupCodes", "userId", "verified",
                                   "failedVerificationCount", "lockedUntil")
          VALUES ($1, $2, $3, true, 0, now() + interval '15 minutes')`,
         ["encrypted-secret", "encrypted-backup-codes", userId],
@@ -373,7 +373,7 @@ describe("schema.sql is idempotent", () => {
     // `*_app_role_access` policy, which includes `session`. Asserting the loop
     // keeps the guarantee without pinning the test to a policy ADR-0017 deleted.
     expect(schemaSql).toMatch(/DROP POLICY IF EXISTS %I ON %I/);
-    expect(schemaSql).toMatch(/'user','account','verification','twoFactor','rateLimit','session'/);
+    expect(schemaSql).toMatch(/'auth_user','auth_account','auth_verification','auth_two_factor','auth_rate_limit','auth_session'/);
   });
 
   it("replaces functions rather than failing on an existing one", () => {
