@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="450" viewBox="0 0 800 450">
+  <rect width="800" height="450" fill="#101014"/>
+  <rect x="10" y="10" width="780" height="430" fill="none" stroke="#2E2E36" stroke-width="3" stroke-dasharray="20 14"/>
+  <text x="400" y="210" text-anchor="middle" font-family="monospace" font-size="40" fill="#8E8E99">PLACEHOLDER - NEWS THUMB</text>
+  <text x="400" y="258" text-anchor="middle" font-family="monospace" font-size="28" fill="#C9C9D1">Story list thumbnail</text>
+  <text x="400" y="300" text-anchor="middle" font-family="monospace" font-size="26" fill="#55555F">800 x 450 - 16:9 - lazy-load</text>
+</svg>

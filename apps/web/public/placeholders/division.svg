@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600">
+  <rect width="800" height="600" fill="#101014"/>
+  <rect x="10" y="10" width="780" height="580" fill="none" stroke="#2E2E36" stroke-width="3" stroke-dasharray="20 14"/>
+  <text x="400" y="280" text-anchor="middle" font-family="monospace" font-size="44" fill="#8E8E99">PLACEHOLDER - DIVISION</text>
+  <text x="400" y="336" text-anchor="middle" font-family="monospace" font-size="32" fill="#C9C9D1">Game / division tile visual</text>
+  <text x="400" y="384" text-anchor="middle" font-family="monospace" font-size="28" fill="#55555F">800 x 600 - 4:3</text>
+</svg>

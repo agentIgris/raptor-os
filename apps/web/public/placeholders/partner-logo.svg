@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="200" viewBox="0 0 400 200">
+  <rect width="400" height="200" fill="#101014"/>
+  <rect x="8" y="8" width="384" height="184" fill="none" stroke="#2E2E36" stroke-width="2" stroke-dasharray="14 10"/>
+  <text x="200" y="92" text-anchor="middle" font-family="monospace" font-size="26" fill="#8E8E99">PLACEHOLDER - PARTNER</text>
+  <text x="200" y="126" text-anchor="middle" font-family="monospace" font-size="20" fill="#C9C9D1">Approved sponsor mark only</text>
+  <text x="200" y="156" text-anchor="middle" font-family="monospace" font-size="18" fill="#55555F">400 x 200 - 2:1</text>
+</svg>

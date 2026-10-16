@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="600" viewBox="0 0 600 600">
+  <rect width="600" height="600" fill="#101014"/>
+  <circle cx="300" cy="250" r="110" fill="none" stroke="#2E2E36" stroke-width="3" stroke-dasharray="18 12"/>
+  <rect x="10" y="10" width="580" height="580" fill="none" stroke="#2E2E36" stroke-width="3" stroke-dasharray="20 14"/>
+  <text x="300" y="440" text-anchor="middle" font-family="monospace" font-size="38" fill="#8E8E99">PLACEHOLDER - PORTRAIT</text>
+  <text x="300" y="484" text-anchor="middle" font-family="monospace" font-size="28" fill="#55555F">600 x 600 - 1:1</text>
+</svg>

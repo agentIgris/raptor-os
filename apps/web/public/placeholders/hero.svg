@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080">
+  <rect width="1920" height="1080" fill="#101014"/>
+  <rect x="12" y="12" width="1896" height="1056" fill="none" stroke="#2E2E36" stroke-width="3" stroke-dasharray="24 18"/>
+  <text x="960" y="510" text-anchor="middle" font-family="monospace" font-size="72" fill="#8E8E99">PLACEHOLDER - HERO</text>
+  <text x="960" y="600" text-anchor="middle" font-family="monospace" font-size="48" fill="#C9C9D1">Art-directed team / match photo goes here</text>
+  <text x="960" y="672" text-anchor="middle" font-family="monospace" font-size="40" fill="#55555F">1920 x 1080 - 16:9 - LCP priority image, never lazy-load</text>
+</svg>

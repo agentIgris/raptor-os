@@ -16,12 +16,15 @@
     "ci": "pnpm lint && pnpm typecheck && pnpm test"
   },
   "dependencies": {
+    "@payloadcms/next": "3.90.2",
     "@raptor/auth": "workspace:*",
+    "@raptor/cms": "workspace:*",
     "@raptor/core": "workspace:*",
     "@raptor/observability": "workspace:*",
     "@raptor/ui": "workspace:*",
     "better-auth": "1.7.7",
     "next": "16.4.0",
+    "payload": "3.90.2",
     "pg": "8.23.1",
     "react": "19.3.0",
     "react-dom": "19.3.0"

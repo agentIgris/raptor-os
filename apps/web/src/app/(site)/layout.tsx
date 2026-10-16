@@ -1,6 +1,56 @@
+import type { Metadata } from "next";
+import { Oswald } from "next/font/google";
+
 import { PageFooter, SkipLink } from "@raptor/ui";
 
 import { SiteHeader } from "../../components/site-header";
+
+/**
+ * Display face for the public site only.
+ *
+ * Oswald (condensed, 500–700) carries headlines; body and UI stay on the
+ * system sans. Scoped to the `(site)` layout so the workspace keeps the OS
+ * look. `next/font` self-hosts the files, which keeps the font CSP-safe
+ * (`font-src 'self'` in `src/proxy.ts`).
+ */
+const display = Oswald({
+  subsets: ["latin"],
+  weight: ["500", "600", "700"],
+  variable: "--font-display",
+  display: "swap",
+});
+
+const appUrl = process.env["NEXT_PUBLIC_APP_URL"];
+
+export const metadata: Metadata = {
+  ...(appUrl === undefined || appUrl === "" ? {} : { metadataBase: new URL(appUrl) }),
+  title: {
+    default: "Raptor Esports",
+    template: "%s — Raptor Esports",
+  },
+  description:
+    "Raptor Esports: competitive rosters, results, news and recruitment. Verified content only — no invented stats.",
+  // The root layout defaults the whole product to noindex (correct for the
+  // authenticated workspace). The public site overrides it back: fan pages
+  // are meant to be found.
+  robots: { index: true, follow: true },
+  openGraph: {
+    type: "website",
+    siteName: "Raptor Esports",
+    images: [
+      {
+        url: "/placeholders/og-default.svg",
+        width: 1200,
+        height: 630,
+        alt: "Raptor Esports",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    images: ["/placeholders/og-default.svg"],
+  },
+};
 
 /**
  * Layout for unauthenticated routes.
@@ -25,13 +75,12 @@ export default function SiteLayout({
     <>
       <SkipLink href="#main" />
       <SiteHeader />
-      <main id="main" tabIndex={-1} className="flex min-w-0 flex-1 flex-col">
+      <main id="main" tabIndex={-1} className={`${display.variable} flex min-w-0 flex-1 flex-col`}>
         {children}
       </main>
       <PageFooter>
         <p>
-          <span translate="no">Raptor OS</span> — a multi-tenant operating system for competitive esports
-          organisations.
+          <span translate="no">Raptor Esports</span> — rosters, results and news. Verified content only.
         </p>
       </PageFooter>
     </>

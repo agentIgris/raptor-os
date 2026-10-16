@@ -47,7 +47,26 @@ export default defineConfig({
       // health endpoints, the session guard and the response headers, and
       // `e2e/a11y.spec.ts` runs axe-core over the rendered markup.
       include: ["src/server/**/*.ts", "src/proxy.ts"],
-      exclude: ["src/**/*.test.ts", "src/**/*.test.tsx", "src/test/**"],
+      exclude: [
+        "src/**/*.test.ts",
+        "src/**/*.test.tsx",
+        "src/test/**",
+        // Live-IO modules: `public.ts` (pg pool over DATABASE_URL) and
+        // `cms.ts` (Payload Local API) cannot run in this suite — there is no
+        // database here by design (see playwright.config.ts). Their pure
+        // mappers live in `public-view.ts` / `cms-view.ts` and ARE covered;
+        // their behavior is covered by `e2e/public.spec.ts` (empty/degraded
+        // states) plus live verification against the real database.
+        // `workspace.ts`, `orgs.ts` and `org-actions.ts` are the same shape
+        // (session-scoped pg reads plus the org-switch server action): pure
+        // guards in `workspace-view.ts` / `org-view.ts` are covered, behavior
+        // by guard e2e specs plus live verification.
+        "src/server/public.ts",
+        "src/server/cms.ts",
+        "src/server/workspace.ts",
+        "src/server/orgs.ts",
+        "src/server/org-actions.ts",
+      ],
       thresholds: { lines: 85, functions: 85, branches: 80, statements: 85 },
     },
   },

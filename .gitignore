@@ -21,6 +21,7 @@ blob-report/
 .env.local
 .env.*.local
 !.env.example
+STAGING-CREDENTIALS.md
 
 # logs
 logs/

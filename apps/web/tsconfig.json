@@ -30,7 +30,10 @@
       {
         "name": "next"
       }
-    ]
+    ],
+    "paths": {
+      "@payload-config": ["../../packages/cms/payload.config.ts"]
+    }
   },
   "include": [
     "next-env.d.ts",

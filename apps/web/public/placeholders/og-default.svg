@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#101014"/>
+  <rect x="10" y="10" width="1180" height="610" fill="none" stroke="#2E2E36" stroke-width="3" stroke-dasharray="20 14"/>
+  <text x="600" y="290" text-anchor="middle" font-family="monospace" font-size="52" fill="#8E8E99">PLACEHOLDER - SOCIAL PREVIEW</text>
+  <text x="600" y="352" text-anchor="middle" font-family="monospace" font-size="34" fill="#C9C9D1">Default OG / Twitter card image</text>
+  <text x="600" y="402" text-anchor="middle" font-family="monospace" font-size="30" fill="#55555F">1200 x 630 - 1.91:1</text>
+</svg>

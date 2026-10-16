@@ -43,6 +43,8 @@
 
 import { APIError } from "better-auth";
 
+import { DEFAULT_EMAIL_FROM } from "./email.js";
+
 /**
  * Connection string the application uses for every query.
  *
@@ -315,6 +317,21 @@ export interface AuthEnv {
    */
   readonly trustedIpHeaders: readonly string[];
   /**
+   * Resend API key for authentication mail (verification + password reset).
+   *
+   * `undefined` when unset, in which case mail sends fail loudly at call
+   * time rather than silently swallowing sign-ups. Optional (not required)
+   * so existing deployments without mail keep booting.
+   */
+  readonly resendApiKey: string | undefined;
+  /**
+   * Sender address for authentication mail. Defaults to Resend's onboarding
+   * sender, which only delivers to the Resend account's own address — the
+   * staging-appropriate default. Never a placeholder check: any non-empty
+   * value is accepted, because deliverability is the provider's verdict.
+   */
+  readonly emailFrom: string;
+  /**
    * CIDR ranges of the reverse proxies that populate {@link trustedIpHeaders}.
    *
    * Empty alongside {@link trustedIpHeaders}: Better Auth's rule is that a
@@ -497,6 +514,8 @@ export function readAuthEnv(env: Readonly<Record<string, string | undefined>>): 
     googleClientId,
     googleClientSecret,
     nodeEnv,
+    resendApiKey: optionalEntry("RESEND_API_KEY"),
+    emailFrom: optionalEntry("EMAIL_FROM") ?? DEFAULT_EMAIL_FROM,
     trustedIpHeaders: splitList(env[TRUSTED_IP_HEADERS_VARIABLE]),
     trustedProxies: splitList(env[TRUSTED_PROXIES_VARIABLE]),
   };

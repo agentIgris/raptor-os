@@ -60,6 +60,7 @@ import {
   readAccountFailures,
   recordAccountFailure,
 } from "./account-lockout.js";
+import { sendPasswordResetEmail, sendVerificationEmail } from "./email.js";
 import { AuthEnvironmentError, mfaRequiredError, readAuthEnv, type AuthEnv } from "./env.js";
 import { ALL_ROLES, evaluateMfaRequirement, isPrivilegedRole } from "./roles.js";
 
@@ -824,16 +825,14 @@ export function buildAuthOptions(env: AuthEnv, database: AuthDatabase): BetterAu
        * exist; wiring the server half here means the client half has something
        * to call.
        *
-       * Delivery is delegated to the web app (which owns the mailer). It
-       * receives a single-use URL and must never log it — it is a bearer
-       * credential for the account.
+       * Delivery goes through Resend. The `url` is a bearer credential
+       * for the account and must never be logged.
        */
-      sendResetPassword: () => {
-        // Intentionally a no-op in this package. `packages/notifications` owns
-        // delivery; silently swallowing here would make a missing mailer look
-        // like a working reset.
-        return Promise.resolve();
-      },
+      sendResetPassword: ({ user, url }) =>
+        sendPasswordResetEmail(
+          { apiKey: env.resendApiKey, from: env.emailFrom },
+          { user: { email: user.email }, url },
+        ),
     },
 
     emailVerification: {
@@ -844,10 +843,11 @@ export function buildAuthOptions(env: AuthEnv, database: AuthDatabase): BetterAu
        * Delegated like `sendResetPassword`. The `url` is a bearer credential
        * that marks the address verified; it must not be logged.
        */
-      sendVerificationEmail: () => {
-        // No-op for the same reason as `sendResetPassword`.
-        return Promise.resolve();
-      },
+      sendVerificationEmail: ({ user, url }) =>
+        sendVerificationEmail(
+          { apiKey: env.resendApiKey, from: env.emailFrom },
+          { user: { email: user.email }, url },
+        ),
     },
 
     session: {

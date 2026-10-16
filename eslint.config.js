@@ -88,4 +88,13 @@ export default tseslint.config(
     files: ["**/seed.ts", "**/migrate.ts"],
     rules: { "@typescript-eslint/no-floating-promises": "off" },
   },
+
+  // Payload-generated migrations: the runner calls `up({ db, payload, req })`
+  // positionally, so `payload`/`req` are unused by every migration that only
+  // needs `db`. Generated on each `migrate:create`; hand-editing them per file
+  // would be reverted by the next generation.
+  {
+    files: ["packages/cms/src/migrations/**/*.ts"],
+    rules: { "@typescript-eslint/no-unused-vars": "off" },
+  },
 );

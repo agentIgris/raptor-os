@@ -13,11 +13,11 @@
 import { expect, test } from "@playwright/test";
 
 test.describe("public routes", () => {
-  test("/ renders the overview with exactly one h1", async ({ page }) => {
+  test("/ renders the fan home with exactly one h1", async ({ page }) => {
     await page.goto("/");
 
     await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
-    await expect(page.getByRole("heading", { level: 1 })).toContainText("Money and obligations");
+    await expect(page.getByRole("heading", { level: 1 })).toContainText("Raptor Esports");
   });
 
   test("renders a labelled form with no application errors in the console", async ({ page }) => {
@@ -106,15 +106,17 @@ test.describe("public routes", () => {
 });
 
 test.describe("session guard fails closed", () => {
-  test("/dashboard redirects to sign-in with no session", async ({ request }) => {
-    // `maxRedirects: 0` so the 307 itself is observed. Following it and
-    // checking the final URL would also pass if the app had rendered the
-    // protected page and then client-side replaced itself.
-    const response = await request.get("/dashboard", { maxRedirects: 0 });
+  for (const path of ["/dashboard", "/teams", "/competitions", "/members", "/content", "/partners", "/insights", "/settings"]) {
+    test(`${path} redirects to sign-in with no session`, async ({ request }) => {
+      // `maxRedirects: 0` so the 307 itself is observed. Following it and
+      // checking the final URL would also pass if the app had rendered the
+      // protected page and then client-side replaced itself.
+      const response = await request.get(path, { maxRedirects: 0 });
 
-    expect(response.status()).toBe(307);
-    expect(response.headers()["location"]).toContain("/sign-in");
-  });
+      expect(response.status()).toBe(307);
+      expect(response.headers()["location"]).toContain("/sign-in");
+    });
+  }
 
   test("no dashboard content is served at the protected URL", async ({ page }) => {
     await page.goto("/dashboard");

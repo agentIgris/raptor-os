@@ -1,3 +1,4 @@
+import { withPayload } from "@payloadcms/next/withPayload";
 import type { NextConfig } from "next";
 
 /**
@@ -54,7 +55,7 @@ interface WebpackConfigLike {
 const nextConfig: NextConfig = {
   reactStrictMode: true,
 
-  transpilePackages: ["@raptor/ui", "@raptor/core", "@raptor/observability", "@raptor/auth"],
+  transpilePackages: ["@raptor/ui", "@raptor/core", "@raptor/observability", "@raptor/auth", "@raptor/cms"],
 
   typescript: {
     // ADR-0012. See above. Do not remove; there is a test that fails if this
@@ -130,4 +131,4 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default withPayload(nextConfig);

@@ -34,12 +34,32 @@
 import axe from "axe-core";
 import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import SiteLayout from "../app/(site)/layout";
 import OverviewPage from "../app/(site)/page";
 import DashboardPage from "../app/(app)/dashboard/page";
 import RootLayout from "../app/layout";
+
+/**
+ * The public home reads live sources; in this suite there is no database, so
+ * the data layer is stubbed at the module boundary to the known-empty state.
+ * What is asserted here is structure and contrast, not content — content
+ * states are covered by `e2e/public.spec.ts` and the mapper unit tests.
+ */
+vi.mock("../server/public", () => ({
+  getPublicDivisions: (): Promise<readonly unknown[]> => Promise.resolve([]),
+  getPublicTeams: (): Promise<readonly unknown[]> => Promise.resolve([]),
+  getPublicResults: (): Promise<readonly unknown[]> => Promise.resolve([]),
+}));
+
+vi.mock("../server/cms", () => ({
+  getPublishedNews: (): Promise<readonly unknown[]> => Promise.resolve([]),
+  getPublishedPartners: (): Promise<readonly unknown[]> => Promise.resolve([]),
+  getRecruitment: (): Promise<unknown> =>
+    Promise.resolve({ open: false, heading: null, formTarget: null }),
+  getSiteSocials: (): Promise<readonly unknown[]> => Promise.resolve([]),
+}));
 
 /**
  * The WCAG conformance tags to run.
@@ -107,7 +127,7 @@ describe("axe-core over the overview route", () => {
       renderRoute(
         <RootLayout>
           <SiteLayout>
-            <OverviewPage />
+            {await OverviewPage()}
           </SiteLayout>
         </RootLayout>,
       ),
@@ -118,12 +138,12 @@ describe("axe-core over the overview route", () => {
     expect(results.violations, `axe-core violations on /:\n${describeViolations(results)}`).toEqual([]);
   });
 
-  it("renders a document with a language and exactly one h1", () => {
+  it("renders a document with a language and exactly one h1", async () => {
     mount(
       renderRoute(
         <RootLayout>
           <SiteLayout>
-            <OverviewPage />
+            {await OverviewPage()}
           </SiteLayout>
         </RootLayout>,
       ),
@@ -133,12 +153,12 @@ describe("axe-core over the overview route", () => {
     expect(document.querySelectorAll("h1")).toHaveLength(1);
   });
 
-  it("exposes the landmarks a screen-reader user navigates by", () => {
+  it("exposes the landmarks a screen-reader user navigates by", async () => {
     mount(
       renderRoute(
         <RootLayout>
           <SiteLayout>
-            <OverviewPage />
+            {await OverviewPage()}
           </SiteLayout>
         </RootLayout>,
       ),
@@ -156,12 +176,12 @@ describe("axe-core over the overview route", () => {
     expect(nav?.getAttribute("aria-label")).toBe("Primary");
   });
 
-  it("puts the skip link first, pointing at the main landmark", () => {
+  it("puts the skip link first, pointing at the main landmark", async () => {
     mount(
       renderRoute(
         <RootLayout>
           <SiteLayout>
-            <OverviewPage />
+            {await OverviewPage()}
           </SiteLayout>
         </RootLayout>,
       ),
@@ -178,20 +198,22 @@ describe("axe-core over the overview route", () => {
     expect(firstFocusable).toBe(skip);
   });
 
-  it("labels every table and scopes every header cell", () => {
+  it("labels every table and scopes every header cell", async () => {
     mount(
       renderRoute(
         <RootLayout>
           <SiteLayout>
-            <OverviewPage />
+            {await OverviewPage()}
           </SiteLayout>
         </RootLayout>,
       ),
     );
 
     const tables = [...document.querySelectorAll("table")];
-    expect(tables.length).toBeGreaterThan(0);
-
+    // Empty states render instead of tables when there is no data — the rule
+    // below guards every table that DOES render, on every route, with data or
+    // without. An assertion of `> 0` here would force demo rows into an empty
+    // database, which is exactly what this page refuses to do.
     for (const table of tables) {
       const region = table.closest('[role="region"]');
       expect(region?.getAttribute("aria-label") ?? "", "a data table must be a named, focusable region").not.toBe("");
@@ -250,7 +272,7 @@ describe("what this suite cannot see", () => {
       renderRoute(
         <RootLayout>
           <SiteLayout>
-            <OverviewPage />
+            {await OverviewPage()}
           </SiteLayout>
         </RootLayout>,
       ),
@@ -270,7 +292,7 @@ describe("what this suite cannot see", () => {
       renderRoute(
         <RootLayout>
           <SiteLayout>
-            <OverviewPage />
+            {await OverviewPage()}
           </SiteLayout>
         </RootLayout>,
       ),
