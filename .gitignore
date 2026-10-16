@@ -43,3 +43,4 @@ pgdata/
 
 # turbo
 .turbo/
+.vercel

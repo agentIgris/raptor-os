@@ -1,7 +1,274 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
-  <rect width="1200" height="630" fill="#101014"/>
-  <rect x="10" y="10" width="1180" height="610" fill="none" stroke="#2E2E36" stroke-width="3" stroke-dasharray="20 14"/>
-  <text x="600" y="290" text-anchor="middle" font-family="monospace" font-size="52" fill="#8E8E99">PLACEHOLDER - SOCIAL PREVIEW</text>
-  <text x="600" y="352" text-anchor="middle" font-family="monospace" font-size="34" fill="#C9C9D1">Default OG / Twitter card image</text>
-  <text x="600" y="402" text-anchor="middle" font-family="monospace" font-size="30" fill="#55555F">1200 x 630 - 1.91:1</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <!-- Background Gradients -->
+    <linearGradient id="og-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#161212" />
+      <stop offset="50%" stop-color="#111111" />
+      <stop offset="100%" stop-color="#0A0909" />
+    </linearGradient>
+
+    <!-- Radial Brand Glow -->
+    <radialGradient id="og-glow" cx="28%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#E74C3C" stop-opacity="0.28" />
+      <stop offset="45%" stop-color="#B71C1C" stop-opacity="0.12" />
+      <stop offset="100%" stop-color="#111111" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="og-gold-glow" cx="72%" cy="45%" r="45%">
+      <stop offset="0%" stop-color="#FFC107" stop-opacity="0.14" />
+      <stop offset="50%" stop-color="#D4AF37" stop-opacity="0.05" />
+      <stop offset="100%" stop-color="#111111" stop-opacity="0" />
+    </radialGradient>
+
+    <!-- Metallic Gold Gradient -->
+    <linearGradient id="og-gold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFF2A3" />
+      <stop offset="30%" stop-color="#FFC107" />
+      <stop offset="70%" stop-color="#D4AF37" />
+      <stop offset="100%" stop-color="#87650E" />
+    </linearGradient>
+    <linearGradient id="og-crimson" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF6B6B" />
+      <stop offset="45%" stop-color="#E74C3C" />
+      <stop offset="100%" stop-color="#B71C1C" />
+    </linearGradient>
+
+    <!-- Tactical Grid Pattern -->
+    <pattern id="tactical-grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#FFFFFF" stroke-width="0.75" stroke-opacity="0.035" />
+      <circle cx="0" cy="0" r="1.5" fill="#D4AF37" fill-opacity="0.15" />
+    </pattern>
+
+    <!-- 45-Degree Hazard Stripe Pattern -->
+    <pattern id="hazard-stripe" width="20" height="20" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
+      <line x1="0" y1="0" x2="0" y2="20" stroke="#B71C1C" stroke-width="5" stroke-opacity="0.08" />
+    </pattern>
+  </defs>
+
+  <!-- ==========================================
+       LAYER 1: FULL CANVAS BACKGROUND & TEXTURES (1200x630)
+       ========================================== -->
+  <!-- Base Dark Canvas -->
+  <rect width="1200" height="630" fill="url(#og-bg)" />
+
+  <!-- Subtle Tactical Grid Overlay -->
+  <rect width="1200" height="630" fill="url(#tactical-grid)" />
+
+  <!-- Diagonal Tactical Texture Strip -->
+  <rect x="0" y="0" width="1200" height="630" fill="url(#hazard-stripe)" />
+
+  <!-- Ambient Light Halos -->
+  <rect width="1200" height="630" fill="url(#og-glow)" />
+  <rect width="1200" height="630" fill="url(#og-gold-glow)" />
+
+  <!-- BGMI Topographic Contour Lines (Subtle Vector Terrain) -->
+  <g id="topography" stroke="#D4AF37" stroke-width="1.2" stroke-opacity="0.09" fill="none">
+    <path d="M -50 180 Q 200 120 450 200 T 950 160 T 1250 220" />
+    <path d="M -50 240 Q 220 170 480 260 T 980 210 T 1250 280" />
+    <path d="M -50 300 Q 240 220 510 320 T 1010 260 T 1250 340" />
+    <path d="M -50 420 Q 260 340 540 440 T 1040 380 T 1250 460" />
+    <path d="M -50 480 Q 280 400 570 500 T 1070 440 T 1250 520" />
+  </g>
+
+  <!-- Outer Frame & Accent Keylines -->
+  <line x1="0" y1="2" x2="1200" y2="2" stroke="url(#og-gold)" stroke-width="4" />
+  <line x1="0" y1="628" x2="1200" y2="628" stroke="#B71C1C" stroke-width="4" />
+
+  <!-- ==========================================
+       LAYER 2: CENTRAL SAFE AREA BOUNDARY MARKS
+       Safe area: x: 100..1100 (1000px), y: 65..565 (500px)
+       ========================================== -->
+  <g id="safe-area-indicators" stroke="#D4AF37" stroke-width="1.5" stroke-opacity="0.35" fill="none">
+    <!-- Top-Left Reticle Bracket -->
+    <path d="M 100 85 L 100 65 L 120 65" />
+    <!-- Top-Right Reticle Bracket -->
+    <path d="M 1080 65 L 1100 65 L 1100 85" />
+    <!-- Bottom-Left Reticle Bracket -->
+    <path d="M 100 545 L 100 565 L 120 565" />
+    <!-- Bottom-Right Reticle Bracket -->
+    <path d="M 1080 565 L 1100 565 L 1100 545" />
+
+    <!-- Corner Target Crosshairs -->
+    <circle cx="100" cy="65" r="2" fill="#D4AF37" fill-opacity="0.6" stroke="none" />
+    <circle cx="1100" cy="65" r="2" fill="#D4AF37" fill-opacity="0.6" stroke="none" />
+    <circle cx="100" cy="565" r="2" fill="#D4AF37" fill-opacity="0.6" stroke="none" />
+    <circle cx="1100" cy="565" r="2" fill="#D4AF37" fill-opacity="0.6" stroke="none" />
+  </g>
+
+  <!-- Technical Telemetry Readouts (Inside Safe Area) -->
+  <g font-family="'Courier New', Courier, monospace" font-size="11" fill="#FFFFFF" fill-opacity="0.45" letter-spacing="1.5">
+    <text x="135" y="82">GRID // 44.18° N, 78.42° E [MILITARY BASE SECTOR]</text>
+    <text x="830" y="82">STATUS // COMBAT ACTIVE : BMPS S4</text>
+  </g>
+
+  <!-- ==========================================
+       LAYER 3: EMBEDDED RAPTOR LOGO EMBLEM
+       Positioned at left side of safe zone:
+       Center: X=310, Y=315. Scaled to 350x350.
+       (310 - 175 = 135px left, perfectly inside safe area x=100)
+       ========================================== -->
+  <g id="og-mascot-crest" transform="translate(135, 140) scale(0.6836)">
+    <!-- Outer Black Contour Stroke (12px) -->
+    <polygon points="256,16 356,36 414,64 472,142 478,228 436,336 348,426 256,498 164,426 76,336 34,228 40,142 98,64 156,36"
+             fill="#111111" stroke="#111111" stroke-width="12" stroke-linejoin="miter" stroke-miterlimit="4" />
+
+    <!-- Imperial Gold Primary Bevel Edge -->
+    <polygon points="256,22 352,41 408,68 464,144 470,226 430,332 344,420 256,490 168,420 82,332 42,226 48,144 104,68 160,41"
+             fill="url(#og-gold)" />
+
+    <!-- Inset Blood Red Accent Border -->
+    <polygon points="256,32 344,49 396,74 448,146 454,222 418,322 338,406 256,474 174,406 94,322 58,222 64,146 116,74 168,49"
+             fill="#B71C1C" />
+
+    <!-- Shield Field Dark Core -->
+    <polygon points="256,38 338,54 388,78 438,148 444,218 410,314 332,396 256,462 180,396 102,314 68,218 74,148 124,78 174,54"
+             fill="#151212" />
+
+    <!-- Shield Field Tactical Chevron Accents -->
+    <polygon points="256,58 370,140 354,152 256,82 158,152 142,140" fill="#B71C1C" opacity="0.35" />
+    <polygon points="256,92 390,192 374,204 256,116 138,204 122,192" fill="#E74C3C" opacity="0.22" />
+    <polygon points="256,126 410,244 394,256 256,150 118,256 102,244" fill="#D4AF37" opacity="0.20" />
+
+    <!-- Quills -->
+    <polygon points="256,44 240,126 256,134" fill="#FFFFFF" />
+    <polygon points="256,44 272,126 256,134" fill="#D4AF37" />
+    <polygon points="256,82 208,60 228,146 256,134" fill="url(#og-crimson)" />
+    <polygon points="256,82 304,60 284,146 256,134" fill="#780E0E" />
+    <polygon points="216,108 152,86 196,178 234,154" fill="url(#og-gold)" />
+    <polygon points="296,108 360,86 316,178 278,154" fill="#87650E" />
+    <polygon points="166,138 98,126 160,214 204,188" fill="url(#og-crimson)" />
+    <polygon points="346,138 414,126 352,214 308,188" fill="#780E0E" />
+    <polygon points="130,192 64,196 134,264 178,228" fill="url(#og-gold)" />
+    <polygon points="382,192 448,196 378,264 334,228" fill="#87650E" />
+
+    <!-- Cranium & Brow -->
+    <polygon points="256,134 228,146 196,178 224,198 256,178" fill="#E74C3C" />
+    <polygon points="256,134 284,146 316,178 288,198 256,178" fill="#B71C1C" />
+    <polygon points="196,178 160,214 178,228 224,198" fill="#FFC107" />
+    <polygon points="316,178 352,214 334,228 288,198" fill="#D4AF37" />
+    <polygon points="256,178 244,198 256,224" fill="#FFFFFF" />
+    <polygon points="256,178 268,198 256,224" fill="#D4AF37" />
+
+    <!-- Eyes & Brow -->
+    <polygon points="256,224 214,222 170,210 162,228 210,240 256,242" fill="#FFFFFF" />
+    <polygon points="256,242 210,240 162,228 174,250 220,250" fill="#111111" />
+    <polygon points="256,224 298,222 342,210 350,228 302,240 256,242" fill="#D4AF37" />
+    <polygon points="256,242 302,240 350,228 338,250 292,250" fill="#111111" />
+    <polygon points="178,234 216,238 206,248 184,244" fill="#FFC107" />
+    <polygon points="190,236 210,239 204,244 194,242" fill="#FFFFFF" />
+    <polygon points="334,234 296,238 306,248 328,244" fill="#FFC107" />
+    <polygon points="322,236 302,239 308,244 318,242" fill="#FFFFFF" />
+
+    <!-- Hooked Beak -->
+    <polygon points="256,242 220,250 224,288 256,288" fill="#FFC107" />
+    <polygon points="256,242 292,250 288,288 256,288" fill="#D4AF37" />
+    <polygon points="256,288 224,288 214,336 242,348 256,382 256,344" fill="url(#og-gold)" />
+    <polygon points="256,288 248,336 256,382" fill="#FFFFFF" opacity="0.85" />
+    <polygon points="256,288 288,288 298,336 270,348 256,382 256,344" fill="#87650E" />
+    <polygon points="220,336 242,348 256,344 270,348 292,336 286,360 256,368 226,360" fill="#111111" />
+    <polygon points="224,336 234,354 238,342" fill="#FFFFFF" />
+    <polygon points="288,336 278,354 274,342" fill="#FFFFFF" />
+
+    <!-- Mandible & Chevron -->
+    <polygon points="182,310 224,354 256,412 256,386 230,366 196,338" fill="url(#og-crimson)" />
+    <polygon points="330,310 288,354 256,412 256,386 282,366 316,338" fill="#780E0E" />
+    <polygon points="256,412 278,432 256,450 234,432" fill="url(#og-gold)" />
+    <polygon points="256,468 290,446 324,424 256,486 188,424 222,446" fill="url(#og-gold)" />
+  </g>
+
+  <!-- ==========================================
+       LAYER 4: TYPOGRAPHY & BRANDING (RIGHT SIDE)
+       All content sits inside x: 530..1080 (Safe area x <= 1100)
+       ========================================== -->
+  <!-- Top Division Badge -->
+  <g transform="translate(540, 140)">
+    <!-- Pill Background -->
+    <rect x="0" y="0" width="295" height="30" rx="4" fill="#B71C1C" />
+    <!-- Tactical Left Accent -->
+    <polygon points="0,0 8,0 4,30 0,30" fill="#FFC107" />
+    <text x="18" y="20" font-family="'Oswald', 'Arial Black', Impact, sans-serif" font-size="13" font-weight="700" fill="#FFFFFF" letter-spacing="2.5">
+      BATTLEGROUNDS MOBILE INDIA
+    </text>
+  </g>
+
+  <!-- Main Organization Headline: "RAPTOR ESPORTS" -->
+  <g transform="translate(540, 235)">
+    <text font-family="'Oswald', 'Arial Black', Impact, sans-serif" font-weight="900" font-style="italic" font-size="74" letter-spacing="1">
+      <tspan x="0" y="0" fill="#FFFFFF">RAPTOR </tspan>
+      <tspan fill="url(#og-gold)">ESPORTS</tspan>
+    </text>
+  </g>
+
+  <!-- Subtitle: "BGMI DIVISION" with Tactical Callout -->
+  <g transform="translate(540, 280)">
+    <text x="0" y="0" font-family="'Oswald', 'Arial Black', sans-serif" font-weight="700" font-size="24" fill="#FFC107" letter-spacing="8">
+      BGMI DIVISION
+    </text>
+  </g>
+
+  <!-- Tactical Separator Bar with 45° Chamfer -->
+  <g transform="translate(540, 305)">
+    <polygon points="0,0 380,0 370,5 0,5" fill="url(#og-gold)" />
+    <polygon points="385,0 460,0 450,5 375,5" fill="#E74C3C" />
+    <polygon points="465,0 480,0 475,5 460,5" fill="#FFFFFF" />
+  </g>
+
+  <!-- Roster Squad Specification Callout -->
+  <g transform="translate(540, 345)">
+    <!-- Section Label -->
+    <text x="0" y="0" font-family="'Oswald', 'Arial', sans-serif" font-size="12" font-weight="700" fill="#D4AF37" letter-spacing="2">
+      ACTIVE COMPETITIVE ROSTER
+    </text>
+
+    <!-- Player Badges -->
+    <g transform="translate(0, 16)" font-family="'Oswald', 'Arial Black', sans-serif" font-size="14" font-weight="700">
+      <!-- Player 1: ZERO IGL -->
+      <g transform="translate(0, 0)">
+        <rect x="0" y="0" width="105" height="28" rx="3" fill="#1C1818" stroke="#D4AF37" stroke-width="1.2" />
+        <circle cx="10" cy="14" r="3" fill="#FFC107" />
+        <text x="20" y="19" fill="#FFFFFF" letter-spacing="1">ZERO IGL</text>
+      </g>
+      <!-- Player 2: IGRIS -->
+      <g transform="translate(115, 0)">
+        <rect x="0" y="0" width="85" height="28" rx="3" fill="#1C1818" stroke="#E74C3C" stroke-width="1.2" />
+        <circle cx="10" cy="14" r="3" fill="#E74C3C" />
+        <text x="20" y="19" fill="#FFFFFF" letter-spacing="1">IGRIS</text>
+      </g>
+      <!-- Player 3: SANKU -->
+      <g transform="translate(210, 0)">
+        <rect x="0" y="0" width="90" height="28" rx="3" fill="#1C1818" stroke="#D4AF37" stroke-width="1.2" />
+        <circle cx="10" cy="14" r="3" fill="#FFC107" />
+        <text x="20" y="19" fill="#FFFFFF" letter-spacing="1">SANKU</text>
+      </g>
+      <!-- Player 4: ANNA -->
+      <g transform="translate(310, 0)">
+        <rect x="0" y="0" width="80" height="28" rx="3" fill="#1C1818" stroke="#E74C3C" stroke-width="1.2" />
+        <circle cx="10" cy="14" r="3" fill="#E74C3C" />
+        <text x="20" y="19" fill="#FFFFFF" letter-spacing="1">ANNA</text>
+      </g>
+      <!-- Player 5: FURRYJOD -->
+      <g transform="translate(400, 0)">
+        <rect x="0" y="0" width="112" height="28" rx="3" fill="#1C1818" stroke="#D4AF37" stroke-width="1.2" />
+        <circle cx="10" cy="14" r="3" fill="#FFC107" />
+        <text x="20" y="19" fill="#FFFFFF" letter-spacing="1">FURRYJOD</text>
+      </g>
+    </g>
+  </g>
+
+  <!-- Tactical Mission Statement / Org Tagline -->
+  <g transform="translate(540, 435)">
+    <text font-family="'Oswald', 'Arial', sans-serif" font-size="13" font-weight="600" fill="#E0E0E0" letter-spacing="2">
+      STRIKE FAST. HUNT RELENTLESS. DOMINATE THE CIRCLE.
+    </text>
+    <text y="24" font-family="'Courier New', monospace" font-size="11" fill="#888888" letter-spacing="1.5">
+      OFFICIAL BRAND ASSET KIT // TIER-1 PRO SQUAD // REx VERIFIED
+    </text>
+  </g>
+
+  <!-- Bottom Tactical Safe Area Anchor Ribbon -->
+  <g transform="translate(540, 498)">
+    <polygon points="0,0 200,0 190,18 0,18" fill="#1C1818" stroke="#D4AF37" stroke-width="1" />
+    <text x="12" y="13" font-family="'Courier New', monospace" font-size="10" font-weight="700" fill="#FFC107" letter-spacing="1.5">
+      // PROTOCOL : REx-2026
+    </text>
+  </g>
 </svg>

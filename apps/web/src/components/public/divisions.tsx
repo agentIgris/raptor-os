@@ -4,6 +4,8 @@ import * as React from "react";
 import { EmptyState, SectionHeading } from "@raptor/ui";
 import type { PublicDivision } from "../../server/public";
 
+import { divisionArt } from "./art";
+
 /**
  * Game divisions. Tiles link nowhere until division detail routes exist —
  * a tile linking to a 404 is worse than a tile that stands alone.
@@ -28,14 +30,16 @@ export function Divisions({ data }: { data: readonly PublicDivision[] | null }):
         />
       ) : (
         <ul className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {data.map((division) => (
+          {data.map((division) => {
+            const art = divisionArt(division.gameSlug);
+            return (
             <li
               key={`${division.gameSlug}/${division.slug}`}
               className="min-w-0 overflow-hidden rounded-lg border border-hairline bg-raised"
             >
               <Image
-                src="/placeholders/division.svg"
-                alt=""
+                src={art.src}
+                alt={art.real ? `${division.gameName} division artwork` : ""}
                 width={800}
                 height={600}
                 sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
@@ -51,7 +55,8 @@ export function Divisions({ data }: { data: readonly PublicDivision[] | null }):
                 </p>
               </div>
             </li>
-          ))}
+            );
+          })}
         </ul>
       )}
     </section>

@@ -1,3 +1,4 @@
+import Image from "next/image";
 import * as React from "react";
 
 import { EmptyState, SectionHeading } from "@raptor/ui";
@@ -41,7 +42,15 @@ export function NewsFeed({ data }: { data: readonly CmsArticle[] | null }): Reac
     <Shell>
       <div className="mt-6 flex flex-col gap-6">
         <article aria-labelledby="featured-story">
-          <p className="text-[length:var(--text-xs)] font-semibold tracking-[var(--tracking-wide)] text-ink-faint uppercase">
+          <Image
+            src="/placeholders/news-featured.png"
+            alt=""
+            width={1200}
+            height={630}
+            sizes="(max-width: 1024px) 100vw, 66vw"
+            className="aspect-[1.91/1] w-full rounded-lg border border-hairline object-cover"
+          />
+          <p className="mt-4 text-[length:var(--text-xs)] font-semibold tracking-[var(--tracking-wide)] text-ink-faint uppercase">
             Featured
             {featured.publishedAt === null ? "" : ` · ${featured.publishedAt.slice(0, 10)}`}
           </p>
@@ -55,16 +64,26 @@ export function NewsFeed({ data }: { data: readonly CmsArticle[] | null }): Reac
           )}
         </article>
         {rest.length > 0 ? (
-          <ul className="flex flex-col gap-4 border-t border-hairline pt-6">
-            {rest.map((article) => (
-              <li key={article.slug} className="min-w-0">
-                <p className="text-[length:var(--text-md)] font-medium break-words text-ink">{article.title}</p>
-                <p className="mt-1 text-[length:var(--text-xs)] text-ink-faint">
-                  {article.publishedAt === null ? "Undated" : article.publishedAt.slice(0, 10)}
-                </p>
-              </li>
-            ))}
-          </ul>
+            <ul className="flex flex-col gap-4 border-t border-hairline pt-6">
+              {rest.map((article) => (
+                <li key={article.slug} className="flex min-w-0 items-center gap-4">
+                  <Image
+                    src="/placeholders/news-thumb.png"
+                    alt=""
+                    width={800}
+                    height={450}
+                    sizes="160px"
+                    className="aspect-video w-24 shrink-0 rounded-md border border-hairline object-cover sm:w-40"
+                  />
+                  <div className="min-w-0">
+                    <p className="text-[length:var(--text-md)] font-medium break-words text-ink">{article.title}</p>
+                    <p className="mt-1 text-[length:var(--text-xs)] text-ink-faint">
+                      {article.publishedAt === null ? "Undated" : article.publishedAt.slice(0, 10)}
+                    </p>
+                  </div>
+                </li>
+              ))}
+            </ul>
         ) : null}
       </div>
     </Shell>

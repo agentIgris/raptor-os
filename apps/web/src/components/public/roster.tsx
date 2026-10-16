@@ -4,6 +4,8 @@ import * as React from "react";
 import { Badge, EmptyState, SectionHeading } from "@raptor/ui";
 import type { PublicTeam } from "../../server/public";
 
+import { playerPortrait } from "./art";
+
 const ROLE_TONE = {
   captain: "info",
   player: "neutral",
@@ -31,22 +33,27 @@ function TeamPlayers({ players }: { players: PublicTeam["players"] }): React.JSX
   }
   return (
     <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-      {players.map((player) => (
-        <li key={player.handle} className="min-w-0 text-center">
-          <Image
-            src="/placeholders/player-portrait.svg"
-            alt={`Portrait placeholder for ${player.handle}`}
-            width={600}
-            height={600}
-            sizes="(max-width: 640px) 50vw, 20vw"
-            className="aspect-square w-full rounded-lg border border-hairline object-cover"
-          />
-          <p className="mt-2 truncate text-[length:var(--text-sm)] font-medium text-ink" translate="no">
-            {player.handle}
-          </p>
-          <Badge tone={ROLE_TONE[player.role as keyof typeof ROLE_TONE] ?? "neutral"}>{player.role}</Badge>
-        </li>
-      ))}
+      {players.map((player) => {
+        const portrait = playerPortrait(player.handle);
+        return (
+          <li key={player.handle} className="min-w-0 text-center">
+            <Image
+              src={portrait.src}
+              alt={portrait.real ? `Portrait of ${player.handle}` : `Portrait placeholder for ${player.handle}`}
+              width={600}
+              height={600}
+              sizes="(max-width: 640px) 50vw, 20vw"
+              className="aspect-square w-full rounded-lg border border-hairline object-cover"
+            />
+            <p className="mt-2 truncate text-[length:var(--text-sm)] font-medium text-ink" translate="no">
+              {player.handle}
+            </p>
+            <Badge tone={ROLE_TONE[player.role as keyof typeof ROLE_TONE] ?? "neutral"}>
+              {player.role}
+            </Badge>
+          </li>
+        );
+      })}
     </ul>
   );
 }

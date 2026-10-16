@@ -1,0 +1,16 @@
+# Never deploy build outputs, caches, test artefacts, or local secrets.
+# (Vercel builds fresh from source; uploading these only burns the 100MB cap.)
+.next
+.turbo
+dist
+coverage
+test-results
+playwright-report
+blob-report
+.env
+.env.local
+.env.*.local
+*.log
+.data
+pgdata
+*.sqlite

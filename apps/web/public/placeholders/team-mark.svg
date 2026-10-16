@@ -1,7 +1,115 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
-  <rect width="256" height="256" fill="#101014"/>
-  <rect x="8" y="8" width="240" height="240" fill="none" stroke="#2E2E36" stroke-width="3" stroke-dasharray="16 12"/>
-  <text x="128" y="120" text-anchor="middle" font-family="monospace" font-size="28" fill="#8E8E99">PLACEHOLDER</text>
-  <text x="128" y="152" text-anchor="middle" font-family="monospace" font-size="28" fill="#C9C9D1">TEAM MARK</text>
-  <text x="128" y="184" text-anchor="middle" font-family="monospace" font-size="20" fill="#55555F">256 x 256 - 1:1</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <defs>
+    <!-- Imperial Gold Metallic Gradient -->
+    <linearGradient id="tm-gold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFF2A3" />
+      <stop offset="30%" stop-color="#FFC107" />
+      <stop offset="70%" stop-color="#D4AF37" />
+      <stop offset="100%" stop-color="#87650E" />
+    </linearGradient>
+
+    <!-- Crimson & Blood Red Cel Shading Gradients -->
+    <linearGradient id="tm-crimson" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF6B6B" />
+      <stop offset="50%" stop-color="#E74C3C" />
+      <stop offset="100%" stop-color="#B71C1C" />
+    </linearGradient>
+    <linearGradient id="tm-blood" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#B71C1C" />
+      <stop offset="60%" stop-color="#780E0E" />
+      <stop offset="100%" stop-color="#3D0404" />
+    </linearGradient>
+
+    <!-- Badge Interior Gradient -->
+    <linearGradient id="tm-badge-bg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#241B1B" />
+      <stop offset="45%" stop-color="#151212" />
+      <stop offset="100%" stop-color="#0A0909" />
+    </linearGradient>
+  </defs>
+
+  <!-- ==========================================
+       TEAM-MARK.SVG (256x256)
+       STRICT REQUIREMENT: Transparent background (strictly NO solid root rect fill).
+       Outer high-contrast gold border so it sits cleanly on dark UI cards.
+       ========================================== -->
+  <g id="team-mark-badge">
+    <!-- Outer Black Drop/Border Contour (6px) -->
+    <polygon points="128,8 178,18 207,32 236,71 239,114 218,168 174,213 128,249 82,213 38,168 17,114 20,71 49,32 78,18"
+             fill="#111111" stroke="#111111" stroke-width="6" stroke-linejoin="miter" stroke-miterlimit="4" />
+
+    <!-- Imperial Gold High-Contrast Outer Border (Crucial for dark UI cards & stream overlays) -->
+    <polygon points="128,11 176,20 204,34 232,72 235,113 215,166 172,210 128,245 84,210 41,166 21,113 24,72 52,34 80,20"
+             fill="url(#tm-gold)" />
+
+    <!-- Inset Blood Red Bevel -->
+    <polygon points="128,16 172,24 198,37 224,73 227,111 209,161 169,203 128,237 87,203 47,161 29,111 32,73 58,37 84,24"
+             fill="#B71C1C" />
+
+    <!-- Dark Shield Core -->
+    <polygon points="128,19 169,27 194,39 219,74 222,109 205,157 166,198 128,231 90,198 51,157 34,109 37,74 62,39 87,27"
+             fill="url(#tm-badge-bg)" />
+
+    <!-- Tactical Chevron Shadow Accents -->
+    <polygon points="128,29 185,70 177,76 128,41 79,76 71,70" fill="#B71C1C" opacity="0.4" />
+    <polygon points="128,46 195,96 187,102 128,58 69,102 61,96" fill="#D4AF37" opacity="0.25" />
+
+    <!-- Quills / Head Crest -->
+    <!-- Center Quill -->
+    <polygon points="128,22 120,63 128,67" fill="#FFFFFF" />
+    <polygon points="128,22 136,63 128,67" fill="#D4AF37" />
+
+    <!-- Inner Quills -->
+    <polygon points="128,41 104,30 114,73 128,67" fill="url(#tm-crimson)" />
+    <polygon points="128,41 152,30 142,73 128,67" fill="url(#tm-blood)" />
+
+    <!-- Outer Quills -->
+    <polygon points="108,54 76,43 98,89 117,77" fill="url(#tm-gold)" />
+    <polygon points="148,54 180,43 158,89 139,77" fill="#87650E" />
+
+    <!-- Cheek Flares -->
+    <polygon points="83,69 49,63 80,107 102,94" fill="url(#tm-crimson)" />
+    <polygon points="173,69 207,63 176,107 154,94" fill="url(#tm-blood)" />
+
+    <!-- Cranium & Brow -->
+    <polygon points="128,67 114,73 98,89 112,99 128,89" fill="#E74C3C" />
+    <polygon points="128,67 142,73 158,89 144,99 128,89" fill="#B71C1C" />
+
+    <polygon points="128,89 122,99 128,112" fill="#FFFFFF" />
+    <polygon points="128,89 134,99 128,112" fill="#D4AF37" />
+
+    <!-- Brow Ridge -->
+    <polygon points="128,112 107,111 85,105 81,114 105,120 128,121" fill="#FFFFFF" />
+    <polygon points="128,121 105,120 81,114 87,125 110,125" fill="#111111" />
+
+    <polygon points="128,112 149,111 171,105 175,114 151,120 128,121" fill="#D4AF37" />
+    <polygon points="128,121 151,120 175,114 169,125 146,125" fill="#111111" />
+
+    <!-- Tactical Amber Optics (Eyes) -->
+    <polygon points="89,117 108,119 103,124 92,122" fill="#FFC107" />
+    <polygon points="95,118 105,120 102,122" fill="#FFFFFF" />
+    <polygon points="167,117 148,119 153,124 164,122" fill="#FFC107" />
+    <polygon points="161,118 151,120 154,122" fill="#FFFFFF" />
+
+    <!-- Hooked Predatory Beak -->
+    <polygon points="128,121 110,125 112,144 128,144" fill="#FFC107" />
+    <polygon points="128,121 146,125 144,144 128,144" fill="#D4AF37" />
+    <polygon points="128,144 112,144 107,168 121,174 128,191 128,172" fill="url(#tm-gold)" />
+    <polygon points="128,144 124,168 128,191" fill="#FFFFFF" opacity="0.85" />
+    <polygon points="128,144 144,144 149,168 135,174 128,191 128,172" fill="#87650E" />
+
+    <!-- Mouth & Fangs -->
+    <polygon points="110,168 121,174 128,172 135,174 146,168 143,180 128,184 113,180" fill="#111111" />
+    <polygon points="112,168 117,177 119,171" fill="#FFFFFF" />
+    <polygon points="144,168 139,177 137,171" fill="#FFFFFF" />
+
+    <!-- Jaw & Mandible -->
+    <polygon points="91,155 112,177 128,206 128,193 115,183 98,169" fill="url(#tm-crimson)" />
+    <polygon points="165,155 144,177 128,206 128,193 141,183 158,169" fill="url(#tm-blood)" />
+
+    <!-- Neck Diamond & Anchor Plinth -->
+    <polygon points="128,206 139,216 128,225 117,216" fill="url(#tm-gold)" />
+    <polygon points="128,225 145,214 162,203 128,243 94,203 111,214" fill="url(#tm-gold)" />
+    <polygon points="128,225 94,203 128,243" fill="#FFF0A0" opacity="0.3" />
+  </g>
 </svg>

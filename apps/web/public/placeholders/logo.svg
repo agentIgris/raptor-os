@@ -1,7 +1,205 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
-  <rect width="512" height="512" fill="#101014"/>
-  <rect x="10" y="10" width="492" height="492" fill="none" stroke="#2E2E36" stroke-width="3" stroke-dasharray="20 14"/>
-  <text x="256" y="244" text-anchor="middle" font-family="monospace" font-size="44" fill="#8E8E99">PLACEHOLDER</text>
-  <text x="256" y="296" text-anchor="middle" font-family="monospace" font-size="52" fill="#C9C9D1">LOGO</text>
-  <text x="256" y="340" text-anchor="middle" font-family="monospace" font-size="30" fill="#55555F">512 x 512 - 1:1</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <!-- Metallic Imperial Gold Gradients -->
+    <linearGradient id="rex-gold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFF2A3" />
+      <stop offset="25%" stop-color="#FFC107" />
+      <stop offset="65%" stop-color="#D4AF37" />
+      <stop offset="100%" stop-color="#87650E" />
+    </linearGradient>
+    <linearGradient id="rex-gold-light" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" />
+      <stop offset="30%" stop-color="#FFDF70" />
+      <stop offset="100%" stop-color="#D4AF37" />
+    </linearGradient>
+    <linearGradient id="rex-gold-dark" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#D4AF37" />
+      <stop offset="50%" stop-color="#9E7814" />
+      <stop offset="100%" stop-color="#4F3602" />
+    </linearGradient>
+
+    <!-- Crimson & Blood Red Cel-Shading Gradients -->
+    <linearGradient id="rex-crimson" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF6B6B" />
+      <stop offset="45%" stop-color="#E74C3C" />
+      <stop offset="100%" stop-color="#B71C1C" />
+    </linearGradient>
+    <linearGradient id="rex-blood" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#B71C1C" />
+      <stop offset="55%" stop-color="#780E0E" />
+      <stop offset="100%" stop-color="#3D0404" />
+    </linearGradient>
+
+    <!-- Deep Tactical Shield Interior -->
+    <linearGradient id="rex-shield-dark" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#241B1B" />
+      <stop offset="40%" stop-color="#151212" />
+      <stop offset="100%" stop-color="#0A0909" />
+    </linearGradient>
+  </defs>
+
+  <!-- ==========================================
+       LAYER 1: OUTER SHIELD / CREST GEOMETRY
+       Dual-Theme Strategy:
+       - Outer 14px #111111 contour guarantees separation on #FFFFFF light backgrounds.
+       - Gleaming Imperial Gold #D4AF37 bevel guarantees striking contrast on #111111 dark backgrounds.
+       ========================================== -->
+  <g id="shield-base">
+    <!-- Outer Black Contour Stroke (14px) -->
+    <polygon points="256,16 356,36 414,64 472,142 478,228 436,336 348,426 256,498 164,426 76,336 34,228 40,142 98,64 156,36"
+             fill="#111111" stroke="#111111" stroke-width="12" stroke-linejoin="miter" stroke-miterlimit="4" />
+
+    <!-- Imperial Gold Primary Bevel Edge -->
+    <polygon points="256,22 352,41 408,68 464,144 470,226 430,332 344,420 256,490 168,420 82,332 42,226 48,144 104,68 160,41"
+             fill="url(#rex-gold)" />
+
+    <!-- Inset Blood Red Accent Border -->
+    <polygon points="256,32 344,49 396,74 448,146 454,222 418,322 338,406 256,474 174,406 94,322 58,222 64,146 116,74 168,49"
+             fill="#B71C1C" />
+
+    <!-- Shield Field Tactical Dark Core -->
+    <polygon points="256,38 338,54 388,78 438,148 444,218 410,314 332,396 256,462 180,396 102,314 68,218 74,148 124,78 174,54"
+             fill="url(#rex-shield-dark)" />
+
+    <!-- Tactical 45° Chevron Vent Accents (BGMI Armor Inset) -->
+    <polygon points="256,58 370,140 354,152 256,82 158,152 142,140" fill="#B71C1C" opacity="0.35" />
+    <polygon points="256,92 390,192 374,204 256,116 138,204 122,192" fill="#E74C3C" opacity="0.22" />
+    <polygon points="256,126 410,244 394,256 256,150 118,256 102,244" fill="#D4AF37" opacity="0.20" />
+    <polygon points="256,160 416,288 402,300 256,184 110,300 96,288" fill="#B71C1C" opacity="0.18" />
+  </g>
+
+  <!-- ==========================================
+       LAYER 2: MASCOT CREST QUILLS & AERODYNAMICS
+       ========================================== -->
+  <g id="crest-quills">
+    <!-- Center Quill (Top Crown Point) -->
+    <polygon points="256,44 240,126 256,134" fill="#FFFFFF" />
+    <polygon points="256,44 272,126 256,134" fill="#D4AF37" />
+
+    <!-- Inner Quills (Tier 1) -->
+    <polygon points="256,82 208,60 228,146 256,134" fill="url(#rex-crimson)" />
+    <polygon points="256,82 304,60 284,146 256,134" fill="url(#rex-blood)" />
+
+    <!-- Mid Quills (Tier 2 - Gold & Blood) -->
+    <polygon points="216,108 152,86 196,178 234,154" fill="url(#rex-gold-light)" />
+    <polygon points="296,108 360,86 316,178 278,154" fill="url(#rex-gold-dark)" />
+
+    <!-- Outer Aerodynamic Quills (Tier 3) -->
+    <polygon points="166,138 98,126 160,214 204,188" fill="url(#rex-crimson)" />
+    <polygon points="346,138 414,126 352,214 308,188" fill="url(#rex-blood)" />
+
+    <!-- Lower Flank Spikes / Cheek Armor Plates -->
+    <polygon points="130,192 64,196 134,264 178,228" fill="url(#rex-gold)" />
+    <polygon points="382,192 448,196 378,264 334,228" fill="url(#rex-gold-dark)" />
+
+    <!-- Mandibular Spikes (Lower Side Flares) -->
+    <polygon points="112,254 74,278 138,318 166,274" fill="#B71C1C" />
+    <polygon points="400,254 438,278 374,318 346,274" fill="#780E0E" />
+  </g>
+
+  <!-- ==========================================
+       LAYER 3: RAPTOR CRANIUM & TACTICAL PLATES
+       ========================================== -->
+  <g id="raptor-cranium">
+    <!-- Helmet / Cranial Facets -->
+    <polygon points="256,134 228,146 196,178 224,198 256,178" fill="#E74C3C" />
+    <polygon points="256,134 284,146 316,178 288,198 256,178" fill="#B71C1C" />
+
+    <!-- Temporal Plates -->
+    <polygon points="196,178 160,214 178,228 224,198" fill="#FFC107" />
+    <polygon points="316,178 352,214 334,228 288,198" fill="#D4AF37" />
+
+    <!-- Center Forehead Keel -->
+    <polygon points="256,178 244,198 256,224" fill="#FFFFFF" />
+    <polygon points="256,178 268,198 256,224" fill="#D4AF37" />
+
+    <!-- Lower Forehead Plates -->
+    <polygon points="244,198 224,198 214,222 256,224" fill="#E74C3C" />
+    <polygon points="268,198 288,198 298,222 256,224" fill="#B71C1C" />
+  </g>
+
+  <!-- ==========================================
+       LAYER 4: SUPRAORBITAL BROW & TACTICAL EYES
+       ========================================== -->
+  <g id="eyes-and-brow">
+    <!-- Predatory Supraorbital Brow Ridge (45° Slashes) -->
+    <polygon points="256,224 214,222 170,210 162,228 210,240 256,242" fill="#FFFFFF" />
+    <polygon points="170,210 156,220 162,228" fill="#D4AF37" />
+    <polygon points="256,242 210,240 162,228 174,250 220,250" fill="#111111" />
+
+    <polygon points="256,224 298,222 342,210 350,228 302,240 256,242" fill="#D4AF37" />
+    <polygon points="342,210 356,220 350,228" fill="#8F6B12" />
+    <polygon points="256,242 302,240 350,228 338,250 292,250" fill="#111111" />
+
+    <!-- Left Eye: Lethal Amber/Gold Tactical Optic -->
+    <polygon points="178,234 216,238 206,248 184,244" fill="#FFC107" />
+    <polygon points="190,236 210,239 204,244 194,242" fill="#FFFFFF" />
+
+    <!-- Right Eye: Lethal Amber/Gold Tactical Optic -->
+    <polygon points="334,234 296,238 306,248 328,244" fill="#FFC107" />
+    <polygon points="322,236 302,239 308,244 318,242" fill="#FFFFFF" />
+  </g>
+
+  <!-- ==========================================
+       LAYER 5: SNOUT & HOOKED PREDATORY BEAK
+       ========================================== -->
+  <g id="raptor-beak">
+    <!-- Upper Beak Bridge -->
+    <polygon points="256,242 220,250 224,288 256,288" fill="#FFC107" />
+    <polygon points="256,242 292,250 288,288 256,288" fill="#D4AF37" />
+
+    <!-- Lateral Cheek Cutlines -->
+    <polygon points="220,250 168,266 182,310 224,288" fill="url(#rex-crimson)" />
+    <polygon points="292,250 344,266 330,310 288,288" fill="url(#rex-blood)" />
+
+    <!-- Hooked Predatory Beak Center Core -->
+    <polygon points="256,288 224,288 214,336 242,348 256,382 256,344" fill="url(#rex-gold-light)" />
+    <polygon points="256,288 248,336 256,382" fill="#FFFFFF" opacity="0.85" />
+    <polygon points="256,288 288,288 298,336 270,348 256,382 256,344" fill="url(#rex-gold-dark)" />
+    <polygon points="256,344 270,348 256,382" fill="#422E03" />
+
+    <!-- Inside Mouth Cavity (Pitch Black Shadow) -->
+    <polygon points="220,336 242,348 256,344 270,348 292,336 286,360 256,368 226,360" fill="#111111" />
+
+    <!-- Lethal Upper Raptor Fangs/Tomia -->
+    <polygon points="224,336 234,354 238,342" fill="#FFFFFF" />
+    <polygon points="288,336 278,354 274,342" fill="#FFFFFF" />
+  </g>
+
+  <!-- ==========================================
+       LAYER 6: MANDIBLE / LOWER JAW & CHEEKS
+       ========================================== -->
+  <g id="lower-jaw">
+    <polygon points="182,310 224,354 256,412 256,386 230,366 196,338" fill="url(#rex-crimson)" />
+    <polygon points="330,310 288,354 256,412 256,386 282,366 316,338" fill="url(#rex-blood)" />
+
+    <!-- Chin Plates & Cel-Shaded Cuts -->
+    <polygon points="224,354 256,412 216,400" fill="#B71C1C" />
+    <polygon points="288,354 256,412 296,400" fill="#5C0909" />
+    <polygon points="216,400 256,412 256,428 204,410" fill="#111111" />
+    <polygon points="296,400 256,412 256,428 308,410" fill="#111111" />
+  </g>
+
+  <!-- ==========================================
+       LAYER 7: NECK CHEVRONS & TACTICAL PLATES
+       ========================================== -->
+  <g id="neck-armor">
+    <!-- Chevron Tier 1 (Imperial Gold Diamond Inset) -->
+    <polygon points="256,412 278,432 256,450 234,432" fill="url(#rex-gold)" />
+    <polygon points="256,412 234,432 256,442" fill="#FFF4C2" />
+
+    <!-- Chevron Tier 2 (Crimson Wings) -->
+    <polygon points="234,432 256,450 256,468 208,438" fill="#E74C3C" />
+    <polygon points="278,432 256,450 256,468 304,438" fill="#B71C1C" />
+
+    <!-- Base Plinth Spike (Bottom Crest Anchor) -->
+    <polygon points="256,468 290,446 324,424 256,486 188,424 222,446" fill="url(#rex-gold)" />
+    <polygon points="256,468 188,424 256,486" fill="#FFF0A0" opacity="0.3" />
+    <polygon points="256,468 256,486 280,458" fill="#8F6B12" />
+
+    <!-- Tactical Razor Edge Highlights -->
+    <line x1="256" y1="46" x2="256" y2="134" stroke="#FFFFFF" stroke-width="2" />
+    <line x1="256" y1="178" x2="256" y2="224" stroke="#FFFFFF" stroke-width="2.5" />
+    <line x1="256" y1="242" x2="256" y2="382" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" />
+  </g>
 </svg>

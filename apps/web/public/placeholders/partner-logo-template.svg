@@ -1,0 +1,103 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 200" width="400" height="200">
+  <defs>
+    <!-- Template Shading Gradients (Monochrome / Grayscale standard) -->
+    <linearGradient id="pt-silver" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" />
+      <stop offset="50%" stop-color="#D0D0D0" />
+      <stop offset="100%" stop-color="#888888" />
+    </linearGradient>
+    <linearGradient id="pt-dark-metal" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#444444" />
+      <stop offset="100%" stop-color="#1E1E1E" />
+    </linearGradient>
+  </defs>
+
+  <!-- ==========================================
+       PARTNER-LOGO-TEMPLATE.SVG (400x200, 2:1)
+       STRICT REQUIREMENT: Transparent background (strictly NO solid root rect fill).
+       Guides:
+       - Outer bounds (400x200) dashed line
+       - Partner Safe Area (320x140) dashed box (x: 40, y: 30)
+       - Alignment Crosshairs (x=200, y=100)
+       Example Partner: Fictional sponsor "RAPTOR GEAR" in monochrome/grayscale style.
+       ========================================== -->
+
+  <!-- ==========================================
+       GUIDE LAYER (TECHNICAL SPECIFICATIONS)
+       ========================================== -->
+  <g id="template-guides">
+    <!-- Outer 400x200 Canvas Bounds Guide -->
+    <rect x="2" y="2" width="396" height="196" rx="4"
+          fill="none" stroke="#FFFFFF" stroke-opacity="0.2" stroke-width="1.2" stroke-dasharray="4,4" />
+
+    <!-- Partner Safe Area Guide (320x140 centered) -->
+    <rect x="40" y="30" width="320" height="140" rx="3"
+          fill="none" stroke="#D4AF37" stroke-opacity="0.5" stroke-width="1.5" stroke-dasharray="6,4" />
+
+    <!-- Center Horizontal Alignment Crosshair -->
+    <line x1="25" y1="100" x2="375" y2="100"
+          stroke="#FFFFFF" stroke-opacity="0.22" stroke-width="1" stroke-dasharray="3,4" />
+
+    <!-- Center Vertical Alignment Crosshair -->
+    <line x1="200" y1="15" x2="200" y2="185"
+          stroke="#FFFFFF" stroke-opacity="0.22" stroke-width="1" stroke-dasharray="3,4" />
+
+    <!-- Technical Dimension Annotations (Monospace Technical Font) -->
+    <g font-family="'Courier New', Courier, monospace" font-size="9" fill="#D4AF37" fill-opacity="0.75" letter-spacing="1">
+      <text x="44" y="24">SAFE AREA // 320 x 140</text>
+      <text x="280" y="24">BOUNDS // 400x200</text>
+      <text x="44" y="184">ALIGN // CENTERED</text>
+      <text x="260" y="184">MONOCHROME LOCKUP</text>
+    </g>
+
+    <!-- Corner Reticle Ticks for Safe Area (x: 40..360, y: 30..170) -->
+    <g stroke="#D4AF37" stroke-width="1.5" stroke-opacity="0.7" fill="none">
+      <path d="M 40 38 L 40 30 L 48 30" />
+      <path d="M 352 30 L 360 30 L 360 38" />
+      <path d="M 40 162 L 40 170 L 48 170" />
+      <path d="M 352 170 L 360 170 L 360 162" />
+    </g>
+  </g>
+
+  <!-- ==========================================
+       EXAMPLE PARTNER LOCKUP: "RAPTOR GEAR"
+       Fictional Sponsor in Monochrome / Grayscale Style
+       Centered at X=200, Y=100 within the safe zone
+       ========================================== -->
+  <g id="example-partner-raptor-gear" transform="translate(200, 100)">
+    <!-- Sponsor Icon: Tactical Precision Gear & Raptor Claw Mark -->
+    <g id="sponsor-icon" transform="translate(-115, -34)">
+      <!-- Outer Tactical Cog / Hexagon Ring -->
+      <polygon points="34,4 58,18 58,46 34,60 10,46 10,18"
+               fill="#1E1E1E" stroke="url(#pt-silver)" stroke-width="2.5" />
+      
+      <!-- Inner Precision Ring -->
+      <circle cx="34" cy="32" r="18" fill="none" stroke="#FFFFFF" stroke-width="1.5" stroke-opacity="0.5" stroke-dasharray="4,3" />
+
+      <!-- Fictional Mascot Claw / Slash Slashes -->
+      <polygon points="26,18 30,18 28,38 24,38" fill="#FFFFFF" />
+      <polygon points="33,15 37,15 35,43 31,43" fill="#FFFFFF" />
+      <polygon points="40,20 44,20 42,39 38,39" fill="url(#pt-silver)" />
+
+      <!-- Center Crosshair Dot -->
+      <circle cx="34" cy="32" r="2.5" fill="#FFFFFF" />
+    </g>
+
+    <!-- Sponsor Brand Typography -->
+    <g id="sponsor-text" transform="translate(-35, 0)">
+      <!-- Main Brand Name: "RAPTOR GEAR" -->
+      <text x="0" y="-4" font-family="'Oswald', 'Arial Black', Impact, sans-serif" font-weight="900" font-style="italic" font-size="28" fill="#FFFFFF" letter-spacing="2">
+        RAPTOR<tspan fill="#CCCCCC"> GEAR</tspan>
+      </text>
+
+      <!-- Subtitle / Hardware Category -->
+      <text x="2" y="16" font-family="'Oswald', 'Arial', sans-serif" font-weight="700" font-size="10" fill="#999999" letter-spacing="3.5">
+        TACTICAL GAMING PERFORMANCE
+      </text>
+
+      <!-- Accent Underline -->
+      <line x1="2" y1="23" x2="185" y2="23" stroke="#666666" stroke-width="1.2" />
+      <polygon points="185,21 190,23 185,25" fill="#FFFFFF" />
+    </g>
+  </g>
+</svg>

@@ -16,7 +16,7 @@ export function Hero(): React.JSX.Element {
     <section aria-labelledby="home-hero" className="relative overflow-hidden border-b border-hairline">
       <div className="absolute inset-0" aria-hidden="true">
         <Image
-          src="/placeholders/hero.svg"
+          src="/placeholders/hero.png"
           alt=""
           width={1920}
           height={1080}
