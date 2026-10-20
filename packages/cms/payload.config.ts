@@ -56,6 +56,19 @@ const databaseUri = process.env["PAYLOAD_DATABASE_URI"] ?? "";
 const tls =
   databaseUri === "" ? { connectionString: "" } : tlsOptionsForDatabaseUrl(databaseUri);
 
+/**
+ * Storage is conditional by design: with S3 credentials present, uploads go
+ * to that bucket (staging/Vercel); without them, the s3Storage plugin is
+ * omitted and Payload's built-in local-disk storage takes over, writing to
+ * the media collection's `staticDir` (gitignored, served through the CMS
+ * file route). A fresh clone needs nothing beyond the database URL.
+ */
+const s3Configured = Boolean(
+  process.env["S3_BUCKET"] &&
+    process.env["S3_ACCESS_KEY_ID"] &&
+    process.env["S3_SECRET_ACCESS_KEY"],
+);
+
 export default buildConfig({
   secret: process.env["PAYLOAD_SECRET"] ?? "",
   serverURL: process.env["NEXT_PUBLIC_APP_URL"] ?? "http://localhost:3000",
@@ -88,23 +101,25 @@ export default buildConfig({
   }),
   collections: [Operators, Media, News, Pages, Partners],
   globals: [SiteSettings, Recruitment],
-  plugins: [
-    s3Storage({
-      collections: {
-        cms_media: true,
-      },
-      bucket: process.env["S3_BUCKET"] ?? "",
-      config: {
-        credentials: {
-          accessKeyId: process.env["S3_ACCESS_KEY_ID"] ?? "",
-          secretAccessKey: process.env["S3_SECRET_ACCESS_KEY"] ?? "",
-        },
-        region: process.env["S3_REGION"] ?? "",
-        endpoint: process.env["S3_ENDPOINT"] ?? "",
-        forcePathStyle: true,
-      },
-    }),
-  ],
+  plugins: s3Configured
+    ? [
+        s3Storage({
+          collections: {
+            cms_media: true,
+          },
+          bucket: process.env["S3_BUCKET"] ?? "",
+          config: {
+            credentials: {
+              accessKeyId: process.env["S3_ACCESS_KEY_ID"] ?? "",
+              secretAccessKey: process.env["S3_SECRET_ACCESS_KEY"] ?? "",
+            },
+            region: process.env["S3_REGION"] ?? "",
+            endpoint: process.env["S3_ENDPOINT"] ?? "",
+            forcePathStyle: true,
+          },
+        }),
+      ]
+    : [],
   typescript: {
     outputFile: path.resolve(srcDir, "payload-types.ts"),
   },

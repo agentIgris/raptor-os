@@ -41,6 +41,10 @@ Thumbs.db
 pgdata/
 /tmp/
 
+# local CMS media (no-S3 storage mode)
+packages/cms/.media/
+.data/
+
 # turbo
 .turbo/
 .vercel

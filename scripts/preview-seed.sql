@@ -21,8 +21,19 @@
 -- IDEMPOTENT: every statement is guarded (ON CONFLICT / WHERE NOT EXISTS).
 -- Apply as: postgres (superuser bypasses RLS; the app role could never write
 -- most of these tables, which is the point of RLS).
+-- SELF-CONTAINED: creates the tenant root when missing, so a fresh local
+-- clone needs nothing beyond the migrations that ran before this file.
 -- Verify with: the counts query at the end (expect 1 org-excluded totals:
 -- 1 game, 2 teams, 5 players, 4 competitions, 4 verified results).
+
+-- Tenant root ---------------------------------------------------------------
+-- Staging had this row from workspace onboarding; local clones start empty,
+-- so the seed provisions it with the same fixed id PUBLIC_ORG_ID points at.
+-- The 0008/0009 AFTER INSERT triggers fire and seed the default transition
+-- rows — same as creating an organisation through the workspace does.
+INSERT INTO public.organization (id, slug, display_name, status, default_currency, default_timezone)
+VALUES ('0c295a27-1295-4dcf-9a0e-2f77a772f14d', 'raptor', 'Raptor', 'active', 'INR', 'Asia/Kolkata')
+ON CONFLICT (id) DO NOTHING;
 
 -- Game ---------------------------------------------------------------------
 INSERT INTO public.game (id, org_id, name, slug, publisher, status, is_active)

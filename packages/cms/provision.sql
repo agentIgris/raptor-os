@@ -41,6 +41,15 @@ $$;
 
 GRANT USAGE ON SCHEMA public TO cms_app;
 
+-- Whatever database this file is applied against IS the CMS database, so the
+-- runtime role needs CONNECT on it. CONNECT is a cluster-level grant, resolved
+-- here from the current database — identical behaviour locally and in staging.
+DO $$
+BEGIN
+  EXECUTE format('GRANT CONNECT ON DATABASE %I TO cms_app', current_database());
+END
+$$;
+
 -- Membership + CREATE are for the MIGRATION job, not the app: `payload
 -- migrate` runs as `cms_app`, and PostgreSQL requires the migrating role to
 -- be a member of a role to receive table ownership, plus CREATE on the

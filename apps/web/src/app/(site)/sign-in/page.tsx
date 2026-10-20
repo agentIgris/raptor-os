@@ -45,8 +45,7 @@ export default async function SignInPage(): Promise<React.JSX.Element> {
         <CardHeader>
           <CardTitle id="sign-in-heading">Sign in to Raptor OS</CardTitle>
           <CardDescription>
-            Your session is held in an httpOnly cookie. It is never written to browser storage,
-            so a script in this page cannot read it.
+            Use your organisation account, or continue with Google if it is set up.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex min-w-0 flex-col gap-6">

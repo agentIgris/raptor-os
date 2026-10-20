@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { DEFAULT_EMAIL_FROM, sendPasswordResetEmail, sendVerificationEmail } from "./email.js";
-
 /**
  * The mailer without a mail server: Resend speaks HTTPS, so `fetch` is the
  * only seam. Every test asserts on the request that WOULD leave the process
@@ -27,9 +26,63 @@ function mockResend(response: unknown): { calls: { url: string; body: Record<str
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
+  vi.restoreAllMocks();
 });
 
 const TRANSPORT = { apiKey: "re_test_key", from: DEFAULT_EMAIL_FROM };
+
+describe("development fallback (no key, NODE_ENV=development)", () => {
+  function spyConsoleWarn(): { lines: string[] } {
+    const lines: string[] = [];
+    vi.spyOn(console, "warn").mockImplementation((first: unknown) => {
+      lines.push(String(first));
+    });
+    return { lines };
+  }
+
+  it("prints the verification link to the console and sends nothing", async () => {
+    const { calls } = mockResend({ data: { id: "msg-1" }, error: null });
+    const { lines } = spyConsoleWarn();
+    vi.stubEnv("NODE_ENV", "development");
+
+    await sendVerificationEmail({ apiKey: undefined, from: DEFAULT_EMAIL_FROM }, {
+      user: { email: "new@example.com" },
+      url: "https://app.example/verify?token=bearer-credential",
+    });
+
+    expect(calls).toHaveLength(0);
+    expect(lines.join("\n")).toContain("bearer-credential");
+    expect(lines.join("\n")).toContain("new@example.com");
+  });
+
+  it("prints the reset link the same way", async () => {
+    const { calls } = mockResend({ data: { id: "msg-2" }, error: null });
+    const { lines } = spyConsoleWarn();
+    vi.stubEnv("NODE_ENV", "development");
+
+    await sendPasswordResetEmail({ apiKey: undefined, from: DEFAULT_EMAIL_FROM }, {
+      user: { email: "owner@example.com" },
+      url: "https://app.example/reset?token=bearer-credential",
+    });
+
+    expect(calls).toHaveLength(0);
+    expect(lines.join("\n")).toContain("bearer-credential");
+  });
+
+  it("never triggers outside development — a missing key still refuses in staging/production", async () => {
+    mockResend({ data: { id: "msg-3" }, error: null });
+    spyConsoleWarn();
+    vi.stubEnv("NODE_ENV", "production");
+
+    await expect(
+      sendVerificationEmail({ apiKey: undefined, from: DEFAULT_EMAIL_FROM }, {
+        user: { email: "new@example.com" },
+        url: "https://app.example/verify?token=t",
+      }),
+    ).rejects.toThrow("RESEND_API_KEY");
+  });
+});
 
 describe("verification email", () => {
   it("sends to the user with the verification URL and no secrets in the envelope", async () => {

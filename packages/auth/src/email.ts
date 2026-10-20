@@ -17,6 +17,15 @@ import { Resend } from "resend";
  * sender and delivery is limited to the Resend account's own address. That is
  * a sender-side restriction, not something this module can or should work
  * around: it fails loudly through the normal error path instead.
+ *
+ * DEVELOPMENT FALLBACK
+ * --------------------
+ * On a laptop there is no mail server and often no Resend key, yet sign-up
+ * and password reset must remain drivable end-to-end. When NODE_ENV is
+ * "development" and no key is set, the verification/reset link is written to
+ * the server console instead of being sent. That gate is NODE_ENV — never a
+ * bare "key missing" test — because the link is a bearer credential and only
+ * a developer's own machine may see it printed anywhere.
  */
 
 export const DEFAULT_EMAIL_FROM = "onboarding@resend.dev";
@@ -44,6 +53,48 @@ function client(transport: EmailTransport): Resend {
   return new Resend(transport.apiKey);
 }
 
+/**
+ * The laptop fallback gate. NODE_ENV, not a "key missing" test: in staging
+ * and production a missing key must still fail loudly, while printing the
+ * link is only ever safe on a developer's own machine.
+ */
+function devFallbackActive(): boolean {
+  return process.env["NODE_ENV"] === "development";
+}
+
+interface OutgoingEmail {
+  readonly to: string;
+  readonly subject: string;
+  readonly html: string;
+  /** The bearer-credential link, shown on the console in development only. */
+  readonly devLink: string;
+}
+
+function refuseMessage(kind: string): (reason: string) => Error {
+  return (reason: string) => new Error(`${kind} email was refused: ${reason}`);
+}
+
+async function deliver(transport: EmailTransport, message: OutgoingEmail, refuse: (reason: string) => Error): Promise<void> {
+  if (transport.apiKey === undefined || transport.apiKey.trim() === "") {
+    if (devFallbackActive()) {
+      console.warn(
+        `[auth:email] DEV FALLBACK (no RESEND_API_KEY): ${message.subject} link for ${message.to}: ${message.devLink}`,
+      );
+      return;
+    }
+    throw new Error("Email is not configured: set RESEND_API_KEY to send authentication mail.");
+  }
+  const { error } = await client(transport).emails.send({
+    from: transport.from,
+    to: message.to,
+    subject: message.subject,
+    html: message.html,
+  });
+  if (error !== null) {
+    throw refuse(error.message);
+  }
+}
+
 function verificationHtml(url: string): string {
   return (
     `<p>Confirm your Raptor OS email address by opening the link below. It expires in one hour.</p>` +
@@ -64,26 +115,28 @@ function resetHtml(url: string): string {
 
 /** Send the sign-up email-verification message. */
 export async function sendVerificationEmail(transport: EmailTransport, data: AuthEmail): Promise<void> {
-  const { error } = await client(transport).emails.send({
-    from: transport.from,
-    to: data.user.email,
-    subject: "Verify your Raptor OS email",
-    html: verificationHtml(data.url),
-  });
-  if (error !== null) {
-    throw new Error(`Verification email was refused: ${error.message}`);
-  }
+  await deliver(
+    transport,
+    {
+      to: data.user.email,
+      subject: "Verify your Raptor OS email",
+      html: verificationHtml(data.url),
+      devLink: data.url,
+    },
+    refuseMessage("Verification"),
+  );
 }
 
 /** Send the password-reset message. */
 export async function sendPasswordResetEmail(transport: EmailTransport, data: AuthEmail): Promise<void> {
-  const { error } = await client(transport).emails.send({
-    from: transport.from,
-    to: data.user.email,
-    subject: "Reset your Raptor OS password",
-    html: resetHtml(data.url),
-  });
-  if (error !== null) {
-    throw new Error(`Password-reset email was refused: ${error.message}`);
-  }
+  await deliver(
+    transport,
+    {
+      to: data.user.email,
+      subject: "Reset your Raptor OS password",
+      html: resetHtml(data.url),
+      devLink: data.url,
+    },
+    refuseMessage("Password-reset"),
+  );
 }

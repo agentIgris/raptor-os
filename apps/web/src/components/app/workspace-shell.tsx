@@ -50,7 +50,7 @@ export function WorkspaceShell({
           <Main>{children}</Main>
           <PageFooter>
             <p>
-              Tenant resolved from the session. Never from a request parameter.
+              <span translate="no">Raptor Esports</span> — rosters, results and news. Verified content only.
             </p>
           </PageFooter>
         </div>
