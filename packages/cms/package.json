@@ -29,7 +29,7 @@
     "@raptor/auth": "workspace:*",
     "drizzle-orm": "0.45.4",
     "payload": "3.90.2",
-    "sharp": "0.34.4"
+    "sharp": "0.35.5"
   },
   "devDependencies": {
     "@types/node": "24.10.1",

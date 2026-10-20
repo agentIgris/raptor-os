@@ -136,8 +136,37 @@ outside the email that carries it.
 
 ---
 
-## 6. Backups and portability
+## 6. Dependency advisories
 
+CI runs `pnpm audit --prod --audit-level high` and fails the build on a
+high or critical advisory. A dependency gate decays on its own: an advisory
+published after the last lockfile refresh turns a green pipeline red without
+anything changing in the repository.
+
+Two mechanisms exist for a transitive dependency that cannot simply be
+upgraded, and both live in `pnpm-workspace.yaml` with the reasoning written
+next to them:
+
+- **An `overrides` entry**, for a package that pins an affected version
+  exactly upstream. `undici` is pinned to 7.29.0 by `payload@3.90.2` and
+  affected by two advisories fixed in 7.29.1; a patch release of the same
+  major carries no API risk, and the override should be deleted when payload
+  pins a patched version itself.
+- **An `auditConfig.ignoreGhsas` entry**, for an advisory with NO patched
+  version at all. `braces` is the current case: it reaches the tree through
+  `next > sass > chokidar > braces`, the repository compiles no Sass, and the
+  vulnerable function expands glob patterns for a build-time file watcher, so
+  the exposure is a denial of service against a local build triggered by a
+  pattern no request can supply. The entry names the reason, and it should be
+  deleted the moment a fix exists.
+
+Both are deliberately explicit. A gate that has been quietly relaxed is a gate
+that is gone, and a suppression nobody can find is a suppression nobody can
+challenge.
+
+---
+
+## 7. Backups and portability
 ```sh
 node scripts/dump-local-db.mjs     # snapshot the database into the repository
 node scripts/restore-local-db.mjs  # replay a snapshot
@@ -154,7 +183,7 @@ a hypothesis.
 
 ---
 
-## 7. Incident playbooks
+## 8. Incident playbooks
 
 ### "Every sign-in reports an unknown email"
 
@@ -198,7 +227,7 @@ instead of being added to as a number. `auth_rate_limit.lastRequest` must be
 
 ---
 
-## 8. The demo build
+## 9. The demo build
 
 The build this repository currently ships does not issue a TOTP challenge:
 the `twoFactor` plugin is not installed, so a password is the whole sign-in

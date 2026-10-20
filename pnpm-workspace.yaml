@@ -19,3 +19,37 @@ overrides:
   # fixed @esbuild-kit/core-utils, this override should be deleted rather than
   # left to mask the upgrade.
   "@esbuild-kit/core-utils>esbuild": "0.25.12"
+
+  # payload 3.90.2 pins undici to 7.29.0 exactly, which is affected by two
+  # advisories: GHSA-rfgv-xxqx-mfg5 (denial of service via an unrequested
+  # WebSocket subprotocol) and GHSA-w293-vg96-wgc3 (TLS certificate validation
+  # bypass through dropped connect options in BalancedPool). Both are fixed in
+  # 7.29.1.
+  #
+  # The pin is EXACT in the upstream package, so the version cannot be moved by
+  # a lockfile refresh — an override is the only lever, and 7.29.1 is a patch
+  # release of the same major, so the override carries no API risk. When
+  # payload pins a patched version itself, this override should be deleted.
+  undici: "7.29.1"
+
+auditConfig:
+  # braces <=3.0.3 is flagged for GHSA-vfj7-8cjw-p6xm (stack exhaustion through
+  # deeply nested patterns). There is NO PATCHED VERSION: 3.0.3 is the latest
+  # release, so the advisory cannot be fixed by upgrading anything.
+  #
+  # Where it reaches the tree: next > sass > chokidar > braces. `sass` is an
+  # OPTIONAL dependency of next, and this repository compiles no Sass — there
+  # is not one .scss file in the workspace — so the path exists in the lockfile
+  # and nowhere else. The vulnerable function is a glob-pattern expander used by
+  # chokidar's file watcher, which runs in the dev server and the build, and
+  # the input it expands is a build-time path pattern, not anything a request
+  # can supply.
+  #
+  # So the exposure is a denial of service against a LOCAL BUILD, triggered by
+  # a pattern nobody can supply, in a package with no fix available. It is
+  # recorded here rather than silently ignored, with the reason, so a reviewer
+  # can disagree with it. If next drops its optional `sass` dependency, or
+  # chokidar replaces braces, or braces ships a fix, this entry should be
+  # deleted.
+  ignoreGhsas:
+    - GHSA-vfj7-8cjw-p6xm
