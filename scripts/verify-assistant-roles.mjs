@@ -46,13 +46,12 @@
  * -------------
  *   1. The dev stack is running (scripts/dev-env.mjs).
  *   2. scripts/create-role-accounts.mjs has run; its gitignored output file
- *      holds the passwords and TOTP secrets this script needs to sign in.
+ *      holds the passwords this script needs to sign in.
  */
 
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
-import { generateTotp } from "./totp.mjs";
 import {
   CookieJar,
   REPO_ROOT,
@@ -84,14 +83,11 @@ function check(label, condition, detailText) {
 }
 
 /**
- * Sign in as one seeded account, answering the TOTP challenge when there is
- * one.
+ * Sign in as one seeded account.
  *
- * Every seeded account has TOTP enrolled, so sign-in returns a two-factor
- * challenge rather than a session: the plugin's after-hook intercepts the
- * response, sets a signed challenge cookie, and answers
- * `{ twoFactorRedirect: true }`. The challenge is answered with
- * `/two-factor/verify-totp`, which then sets the session cookie.
+ * One stage: the password. The `twoFactor` plugin is not installed in this
+ * build, so no challenge is issued and there is no code to answer — see "THE
+ * DEMO BUILD" in packages/auth/src/config.ts.
  */
 async function signIn(account, origin) {
   const jar = new CookieJar();
@@ -104,19 +100,10 @@ async function signIn(account, origin) {
     throw new Error(`sign-in for ${account.email} failed with ${signInResult.status}: ${signInResult.text}`);
   }
 
-  const challenged = signInResult.payload?.twoFactorRedirect === true;
-  if (challenged) {
-    const code = generateTotp(account.totpSecret);
-    const verified = await authCall("/two-factor/verify-totp", { body: { code }, jar, baseUrl: origin });
-    if (verified.status !== 200) {
-      throw new Error(`TOTP verification for ${account.email} failed with ${verified.status}: ${verified.text}`);
-    }
-  }
-
   if (jar.sessionToken() === undefined) {
     throw new Error(`sign-in for ${account.email} produced no session cookie`);
   }
-  return { jar, challenged };
+  return { jar };
 }
 
 async function main() {

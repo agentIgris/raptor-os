@@ -16,12 +16,17 @@
  * 2. THERE WAS NO PER-ACCOUNT COUNTER AT ALL.
  *    `user` carries no failure count, so nothing bounded guessing against ONE
  *    account no matter how many addresses were involved. Worse, the `twoFactor`
- *    plugin's `accountLockout` (max 5) looks like it covers this and does not:
+ *    plugin's `accountLockout` (max 5) looked like it covered this and did not:
  *    read out of the installed `dist/plugins/two-factor/verify-two-factor.mjs`,
  *    `recordTwoFactorFailure` is called ONLY from the TOTP verification route.
  *    It counts 6-digit code guesses, never password guesses. That boundary is
  *    asserted below so nobody closes a password-brute-force ticket by pointing
  *    at the MFA lockout.
+ *
+ *    The plugin is no longer installed in this build (see "THE DEMO BUILD" in
+ *    `config.ts`), so the counter it kept cannot move at all. The boundary is
+ *    therefore still worth asserting: the password budget is the ONLY per-account
+ *    budget there is, and it is the one that has to hold.
  *
  * WHAT A LIBRARY CONFIG ALONE CANNOT DO
  * ------------------------------------
@@ -311,10 +316,16 @@ describe("the failure counter's lifecycle", () => {
 
 describe("the MFA account lockout does NOT cover passwords", () => {
   it("leaves the twoFactor counter untouched when a password is wrong", async () => {
-    // A boundary, asserted rather than asserted-in-prose. `accountLockout`
-    // (max 5) lives in `verify-two-factor.mjs` and counts 6-digit TOTP guesses
-    // only. Pointing at it as the answer to password brute force would leave the
-    // password path exactly as unprotected as it is here.
+    // A boundary, asserted rather than asserted-in-prose. The plugin's
+    // `accountLockout` (max 5) lived in `verify-two-factor.mjs` and counted
+    // 6-digit TOTP guesses only. Pointing at it as the answer to password brute
+    // force would leave the password path exactly as unprotected as it is here.
+    //
+    // The plugin is not installed in this build, so the counter cannot move at
+    // all and the assertion is a regression guard rather than a live boundary:
+    // if the challenge is ever re-enabled, the password budget must still be a
+    // SEPARATE budget, and a counter that moves on a wrong password would be
+    // the failure this catches.
     const email = "totp-versus-password@example.invalid";
     await createVerifiedUser(email);
 

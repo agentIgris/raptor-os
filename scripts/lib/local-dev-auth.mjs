@@ -16,10 +16,10 @@
  *
  *   - a built-in rule giving every `/sign-in*` and `/sign-up*` path
  *     3 requests per 10 seconds;
- *   - a plugin rule giving every `/two-factor/*` path 3 requests per
- *     10 seconds;
- *   - custom rules overriding both for `/sign-in/email` (5 per 60s) and
- *     `/two-factor/verify-totp` (5 per 60s).
+ *   - custom rules overriding it for `/sign-in/email` (5 per 60s) and the
+ *     `/two-factor/verify-*` challenge paths (5 per 60s). The challenge paths
+ *     are declared on the server and inert in this build — the `twoFactor`
+ *     plugin is not installed, so no challenge is ever issued.
  *
  * With no client IP resolvable in local development — `AUTH_TRUSTED_IP_HEADERS`
  * is empty, and the config says so explicitly — there is exactly ONE bucket
@@ -102,11 +102,17 @@ export function baseUrl() {
   return (process.env["NEXT_PUBLIC_APP_URL"] ?? "http://localhost:3000").replace(/\/+$/, "");
 }
 
-/** The rate-limit budgets the server enforces, mirrored so a caller can pace itself. */
+/**
+ * The rate-limit budgets the server enforces, mirrored so a caller can pace itself.
+ *
+ * The challenge paths are inert in this build — the `twoFactor` plugin is not
+ * installed, so no code is ever sent to them — but the server still declares
+ * their budgets, and a mirror that disagreed with the server would be worse than
+ * one that is slightly wider than it needs to be.
+ */
 export const RATE_RULES = {
   "/sign-up/email": { window: 10, max: 3 },
   "/sign-in/email": { window: 60, max: 5 },
-  "/two-factor/enable": { window: 10, max: 3 },
   "/two-factor/verify-totp": { window: 60, max: 5 },
   "/two-factor/verify-otp": { window: 60, max: 5 },
   "/two-factor/verify-backup-code": { window: 60, max: 5 },

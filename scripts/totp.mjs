@@ -21,6 +21,16 @@
  *   Truncation:      dynamic — the low nibble of the last digest byte picks
  *                     the 4-byte window, whose top bit is masked off.
  *
+ * NO CONSUMER IN THIS BUILD, AND WHY IT IS STILL HERE
+ * ----------------------------------------------------
+ * The `twoFactor` plugin is not installed in this build (see "THE DEMO BUILD"
+ * in packages/auth/src/config.ts): no challenge is issued, so the seed scripts
+ * do not enrol anything and nothing in the repository calls this file. It
+ * stays because it is the reference implementation of the proof the challenge
+ * asks for, it has no dependencies, and re-enabling the challenge is a
+ * one-entry change in `config.ts` — after which the enrolment step in
+ * `scripts/create-role-accounts.mjs` needs exactly this arithmetic.
+ *
  * DEPENDENCIES
  * ------------
  * `node:crypto` only. No package to add, no lockfile to churn, and the

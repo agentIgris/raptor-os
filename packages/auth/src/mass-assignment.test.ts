@@ -145,7 +145,8 @@ describe("a client cannot supply a role at sign-up", () => {
       twoFactorEnabled: true,
     });
 
-    // `twoFactorEnabled` is declared `input: false` by the two-factor plugin and
+    // `twoFactorEnabled` is declared `input: false` by this package — it is the
+    // enrolment flag the MFA policy reads — so a client cannot set it, and it
     // lands on its own default. Crucially it is NOT something the client can set
     // to skip enrolment.
     const row = await fixture.ownerPool.query<{ role: string; twoFactorEnabled: boolean }>(

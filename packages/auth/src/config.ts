@@ -12,8 +12,9 @@
  *    `useSecureCookies` pins `Secure` in production.
  *
  * 2. "MFA / TOTP: NOT IMPLEMENTED — no `mfa` reference anywhere." (F-AUTH-05.)
- *    TOTP is enabled here, and `PRIVILEGED_ROLES` must complete enrolment before
- *    a session is honoured. See `resolveMfaSubject` and `roles.ts`.
+ *    The REQUIREMENT is implemented: a privileged role cannot exist without the
+ *    enrolment flag, and a session is refused to an account that lacks it. The
+ *    CHALLENGE is not asked for in this build — see "THE DEMO BUILD" below.
  *
  * 3. "`/auth/reset-password` is allowlisted and referenced but the route does not
  *    exist." `emailAndPassword.sendResetPassword` is wired and the endpoint is
@@ -31,6 +32,41 @@
  *    acceptance record stores *evidence* (hash, timestamp, actor), and the role
  *    is resolved server-side from `role_assignment`. Nothing the client sends
  *    can influence it.
+ *
+ * THE DEMO BUILD — NO TOTP CHALLENGE IS ASKED FOR
+ * ------------------------------------------------
+ * This deployment runs the demo stack, and the demo does not ask anyone for a
+ * 6-digit code. The `twoFactor` plugin is NOT installed, so there is no
+ * `/two-factor/*` route, no challenge cookie and no enrolment flow: a password
+ * is the whole sign-in, for an owner and for an ordinary player alike.
+ *
+ * WHAT IS STILL IN FORCE — the demo is not "no MFA at all"
+ * --------------------------------------------------------
+ *   - `roles.ts` still refuses a session to a privileged account whose
+ *     `twoFactorEnabled` is not true, and so do the two gates in this file and
+ *     the `user_mfa_guard` trigger in `schema.sql`. A privileged account is
+ *     therefore still PROVISIONED as enrolled —
+ *     `scripts/create-role-accounts.mjs` grants the role and the flag in one
+ *     statement — it just does not have to prove possession of a secret at
+ *     sign-in.
+ *   - `twoFactorEnabled` is declared on the user model below with `input:
+ *     false`. That declaration is load-bearing in a way that is easy to miss:
+ *     the installed adapter builds every returned user object from the MODEL's
+ *     declared fields (`@better-auth/core`, `db/adapter/factory.mjs`,
+ *     `transformSingleOutput`), so a column that exists in the table but is not
+ *     declared in the model is silently DROPPED from the session payload. The
+ *     after-hook gate reads the flag off that payload, so an undeclared column
+ *     would make it read `false` for every account — an enrolled owner included
+ *     — and every privileged sign-in would be refused.
+ *
+ * THE TRADE-OFF, STATED RATHER THAN HIDDEN
+ * ----------------------------------------
+ * A privileged account in this build is protected by its password alone: a
+ * stolen password is immediate, unchallenged access to an owner account. That is
+ * acceptable for a demo on a local stack and is NOT acceptable for a deployment
+ * holding real data. Re-installing the plugin is the change that restores the
+ * second factor, and everything it needs is still here — the flag, the policy,
+ * the trigger, the gates, and the rate limits for the challenge paths.
  *
  * API SHAPE, AS INSTALLED
  * -----------------------
@@ -51,7 +87,6 @@ import {
   type BetterAuthOptions,
   type GenericEndpointContext,
 } from "better-auth";
-import { twoFactor } from "better-auth/plugins";
 import { createAuthMiddleware } from "better-auth/api";
 import {
   accountCounterKey,
@@ -124,41 +159,33 @@ export const EMAIL_VERIFICATION_EXPIRES_IN_SECONDS = 60 * 60;
 export const PASSWORD_RESET_TOKEN_EXPIRES_IN_SECONDS = 60 * 30;
 
 /**
- * How long a user has to finish a TOTP challenge after a successful password
- * check. 5 minutes — long enough for an authenticator app, short enough that a
- * hijacked pre-MFA cookie is not a durable foothold.
- */
-export const MFA_CHALLENGE_COOKIE_MAX_AGE_SECONDS = 60 * 5;
-
-/**
- * Consecutive failed TOTP attempts before the *account* locks.
- *
- * Better Auth tracks `failedVerificationCount` and `lockedUntil` on the
- * `twoFactor` table. A 6-digit code is 10^6 values, so an attacker holding the
- * password gets an unthrottled oracle without this. 5 attempts, 15-minute lock.
- */
-export const MFA_MAX_FAILED_ATTEMPTS = 5;
-export const MFA_LOCKOUT_DURATION_SECONDS = 60 * 15;
-
-/**
  * Consecutive failed PASSWORD attempts against one account before it is locked.
  *
- * The `twoFactor` plugin's `accountLockout` has a confusable name and a
- * different scope: it counts failed 6-digit TOTP verifications, and only on a
- * `twoFactor` row that does not exist until the user enrols. Password guessing is
- * not TOTP guessing — an attacker who already holds the password is attacking a
- * different oracle entirely. Measured before this counter existed: with a unique
- * `X-Forwarded-For` per request, 200 of 200 guesses against one named account
- * were accepted.
+ * The `twoFactor` plugin's `accountLockout` had a confusable name and a
+ * different scope: it counted failed 6-digit TOTP verifications, and only on a
+ * `twoFactor` row that did not exist until the user enrolled. Password guessing
+ * is not TOTP guessing — an attacker who already holds the password is attacking
+ * a different oracle entirely. Measured before this counter existed: with a
+ * unique `X-Forwarded-For` per request, 200 of 200 guesses against one named
+ * account were accepted.
  *
- * 5 is the same budget Better Auth uses for TOTP, and the same one the industry
- * settled on (NIST SP 800-63B 5.2.2: cap the attempts, then apply a cooldown,
- * and never lock an account permanently). It is comfortably above "a human
- * fat-fingering their password three times" and far below "an automated run".
+ * That plugin is not installed in this build (see "THE DEMO BUILD" above), so
+ * the TOTP counter cannot move at all and this is now the ONLY per-account
+ * budget in the package. The distinction is kept in writing rather than deleted
+ * with the code: it is the reason the two budgets must never be merged if the
+ * challenge is ever re-enabled, and the reason the password budget is the one
+ * that is measured.
+ *
+ * 5 is the budget the industry settled on (NIST SP 800-63B 5.2.2: cap the
+ * attempts, then apply a cooldown, and never lock an account permanently). It is
+ * comfortably above "a human fat-fingering their password three times" and far
+ * below "an automated run".
  */
 export const ACCOUNT_SIGNIN_MAX_FAILURES = 5;
 
-/** How long a password-locked account stays locked. 15 minutes. */
+/**
+ * How long a password-locked account stays locked. 15 minutes.
+ */
 export const ACCOUNT_SIGNIN_LOCKOUT_SECONDS = 60 * 15;
 
 /**
@@ -189,7 +216,15 @@ export const RATE_LIMITS = {
   global: { window: 60, max: 100 },
   /** `/sign-in/*` — credential stuffing. */
   signIn: { window: 60, max: 5 },
-  /** `/two-factor/verify-*` — 6-digit code guessing. */
+  /**
+   * `/two-factor/verify-*` — 6-digit code guessing.
+   *
+   * Inert in this build: no challenge is issued, so there is no code to guess.
+   * It stays declared because it is a BOUND, not a feature — if the challenge is
+   * re-enabled, the bound has to be in place before the route is, and a
+   * re-enabled challenge that arrived without its budget would be the exact
+   * "unthrottled oracle" this number exists to prevent.
+   */
   twoFactorVerify: { window: 60, max: 5 },
   /** Password reset — account enumeration and mail-bombing. */
   passwordReset: { window: 300, max: 3 },
@@ -202,6 +237,13 @@ export const RATE_LIMITS = {
  *
  * MFA is enforced on the *session* rather than per endpoint, so this list only
  * has to cover the places a session can come into existence.
+ *
+ * The challenge paths are retained even though the plugin that served them is
+ * not installed (see "THE DEMO BUILD" above). Two reasons, both about the gate
+ * rather than about the routes: the MFA policy is enforced on every path that
+ * can produce a session, and a path that produced a session WITHOUT being
+ * listed would be a session the policy never saw. The list is therefore
+ * deliberately a superset of the routes that exist today.
  */
 const SESSION_CREATION_PATHS: readonly string[] = [
   "/sign-up/email",
@@ -285,6 +327,13 @@ async function resolveMfaSubject(
  * Putting the authoritative rule in the database is what makes it unbypassable
  * by any future application code path. That is the lesson of F-AUTH-03, where
  * the rule lived in a helper that one careless refactor could stop calling.
+ *
+ * The flag it reads is the one this package declares on the user model with
+ * `defaultValue: false`, so an INSERT that says nothing about MFA arrives with
+ * the flag explicitly false rather than NULL. The difference matters: the
+ * trigger's predicate is `NEW."twoFactorEnabled" IS NOT TRUE`, so NULL and false
+ * are refused alike — but a NULL is indistinguishable from "nobody ever set
+ * this", and a column that is never set is a column nobody is watching.
  */
 function mfaGuardCreatesPrivilegedUser(incoming: Record<string, unknown>): boolean {
   const role = readString(incoming["role"]);
@@ -521,13 +570,27 @@ function readEndpointOutcome(context: object): { readonly status: number; readon
  * It is a second line of defence. The authoritative rule is "a privileged role
  * cannot exist without TOTP"; this catches the residual case where such a row
  * already exists — a direct write, a legacy import, a future code path.
+ *
+ * WHERE THE FLAG COMES FROM, AND WHY THAT IS NOT A DETAIL
+ * -------------------------------------------------------
+ * The flag is read off `newSession.user`, and it is read off the PAYLOAD rather
+ * than re-read from the database — which is only sound because the field is
+ * DECLARED on the user model (see `user.additionalFields` below). The installed
+ * adapter assembles every returned user object from the model's declared fields
+ * (`@better-auth/core`, `db/adapter/factory.mjs`, `transformSingleOutput`): a
+ * column that exists in the table but is not declared in the model is dropped
+ * from the payload without a word. Reading an undeclared field here would read
+ * `undefined`, which this gate turns into `false`, which is a refusal — so the
+ * failure mode of getting the declaration wrong is that EVERY privileged
+ * sign-in is refused, including an enrolled owner, and nothing anywhere says why.
  */
 function mfaGateAfterSignIn(ctx: GenericEndpointContext): void {
   if (!SESSION_CREATION_PATHS.includes(ctx.path)) return;
 
-  // `newSession` is null while a TOTP challenge is in flight: the two-factor
-  // plugin deletes the credential session and resets this to null before handing
-  // back `twoFactorRedirect`. Nothing to check.
+  // `newSession` is null when no session was created. That was reachable while a
+  // TOTP challenge was in flight — the two-factor plugin deleted the credential
+  // session and reset this to null before handing back `twoFactorRedirect` — and
+  // it stays a guard against any other path that creates no session.
   const data = ctx.context.newSession;
   if (data === null) return;
 
@@ -938,35 +1001,48 @@ export function buildAuthOptions(env: AuthEnv, database: AuthDatabase): BetterAu
       },
     },
 
-    plugins: [
-      twoFactor({
-        issuer: "Raptor OS",
-        /**
-         * Physical table `auth_two_factor`. The plugin owns this model's schema;
-         * without the override it falls back to the bare `twoFactor` name. The
-         * override is keyed by model (`{ twoFactor: { modelName } }`), not a
-         * bare `modelName`, because the plugin schema covers two models.
-         */
-        schema: {
-          twoFactor: {
-            modelName: "auth_two_factor",
-          },
-        },
-        /**
-         * `skipVerificationOnEnable: false` keeps the default. When true,
-         * enabling MFA flips the flag *without* the user ever proving they hold
-         * the secret — which would make "MFA enabled" a value a user can set
-         * without having a device, defeating the entire control.
-         */
-        skipVerificationOnEnable: false,
-        twoFactorCookieMaxAge: MFA_CHALLENGE_COOKIE_MAX_AGE_SECONDS,
-        accountLockout: {
-          enabled: true,
-          maxFailedAttempts: MFA_MAX_FAILED_ATTEMPTS,
-          durationSeconds: MFA_LOCKOUT_DURATION_SECONDS,
-        },
-      }),
-    ],
+    /**
+     * NO PLUGINS. The `twoFactor` plugin is deliberately not installed.
+     *
+     * WHAT IT USED TO DO
+     * -------------------
+     * The plugin is what turned a password into a TWO-step sign-in: it served
+     * `/two-factor/enable`, `/two-factor/verify-totp` and the backup-code route,
+     * it issued the short-lived challenge cookie, and it counted failed 6-digit
+     * guesses against the account. With it installed, an enrolled account was
+     * answered `twoFactorRedirect` instead of a session, and the client had to
+     * come back with a code.
+     *
+     * WHY IT IS GONE
+     * --------------
+     * This is the demo build: the sign-in is a password and nothing else, for
+     * every role, owner included. See "THE DEMO BUILD" at the top of this file
+     * for the full statement of what is and is not still enforced.
+     *
+     * WHAT IS DELIBERATELY LEFT IN PLACE
+     * ----------------------------------
+     * The plugin was the CHALLENGE. It was never the policy, and it was never
+     * the requirement:
+     *
+     *   - `roles.ts` still refuses a privileged account without the flag, and
+     *     so do the session-creation gate and the after-hook gate in this file,
+     *     and so does the `user_mfa_guard` trigger in `schema.sql`.
+     *   - The `twoFactorEnabled` flag is still declared on the user model and
+     *     still written by the provisioning script, so a privileged account is
+     *     still created as an enrolled one and the policy still has something
+     *     true to read.
+     *   - The rate limits for the challenge paths are still declared, so
+     *     re-enabling the challenge cannot arrive without its budget.
+     *
+     * WHAT RE-ENABLING IT WOULD TAKE
+     * ------------------------------
+     * One entry here, plus the client-side challenge stage in
+     * `apps/web/src/app/(site)/sign-in/sign-in-form.tsx` and the enrolment steps
+     * in `scripts/create-role-accounts.mjs`. Nothing else was thrown away: the
+     * policy, the trigger, the gates and the flag are all still here, and the
+     * `auth_two_factor` table and its columns are untouched.
+     */
+    plugins: [],
 
     user: {
       /**
@@ -977,6 +1053,50 @@ export function buildAuthOptions(env: AuthEnv, database: AuthDatabase): BetterAu
        */
       modelName: "auth_user",
       additionalFields: {
+        /**
+         * THE ENROLMENT FLAG THE MFA POLICY READS.
+         *
+         * Declared HERE, by this package, rather than left to the `twoFactor`
+         * plugin — and the declaration is not bookkeeping. The installed adapter
+         * assembles every returned user object from the MODEL's declared fields
+         * (`@better-auth/core`, `db/adapter/factory.mjs`,
+         * `transformSingleOutput`): a column that exists in the table but is not
+         * declared in the model is DROPPED from the payload, silently.
+         *
+         * Both MFA gates read that flag. The session-creation gate re-reads the
+         * row through the adapter, and the after-hook gate reads it off the
+         * session payload. With the plugin gone and no declaration here, the
+         * payload would carry no flag, the gate would read `false` for every
+         * account, and EVERY privileged sign-in would be refused — an enrolled
+         * owner included — with nothing in the logs to say why. The failure is
+         * fail-closed, which is the safe direction, and completely silent, which
+         * is the useless one.
+         *
+         * The attributes, one at a time:
+         *
+         *   - `input: false`: no client can assert the flag. Better Auth's
+         *     `parseInputData` refuses a body key marked `input: false` on
+         *     update, and ignores it on create. The flag is therefore a
+         *     server-side value only, exactly like `role` — asserted in
+         *     `mass-assignment.test.ts`.
+         *   - `defaultValue: false`: an account created without MFA is created
+         *     with the flag explicitly false, not NULL. The trigger's predicate
+         *     is `IS NOT TRUE`, so both are refused alike, but a column that is
+         *     never written is a column nobody is watching.
+         *   - `required: false`: the column is nullable in `schema.sql` and
+         *     stays so — a NOT NULL column here would make `auth migrate`
+         *     report drift.
+         *   - `returned: true`: the flag is part of the returned user. The
+         *     after-hook gate reads it off the payload, so a field that was not
+         *     returned would be a field the gate could never see.
+         */
+        twoFactorEnabled: {
+          type: "boolean",
+          required: false,
+          input: false,
+          defaultValue: false,
+          returned: true,
+        },
         /**
          * THE FIX FOR F-AUTH-03 AND THE CLIENT-SUPPLIED-ROLE DEFECT.
          *

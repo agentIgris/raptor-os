@@ -9,8 +9,7 @@
  * active organisation, and be authorised as their role. The seed covers BOTH
  * halves of the identity model, because neither half works alone:
  *
- *   packages/auth (Better Auth)  →  auth_user, auth_account, auth_session,
- *                                    auth_two_factor
+ *   packages/auth (Better Auth)  →  auth_user, auth_account, auth_session
  *   packages/db  (domain)        →  person, identity, person_profile,
  *                                    org_membership, role, role_assignment,
  *                                    person_credential_link
@@ -27,24 +26,32 @@
  *      declared `input: false` in packages/auth/src/config.ts, so Better Auth
  *      answers FIELD_NOT_ALLOWED for a body that carries it, and the account
  *      lands on the default role `pending` — the safe default, and the only
- *      one available before TOTP exists.
+ *      one available before the role is granted.
  *   2. MARK THE EMAIL VERIFIED in the database. `requireEmailVerification` is
  *      true, so sign-in refuses an unverified address.
- *   3. SIGN IN over HTTP and keep the session cookie. Sign-in must happen
- *      BEFORE enrolment: the enrolment endpoints need a live session, and an
- *      account with `twoFactorEnabled` is challenged at sign-in instead of
- *      receiving a session.
- *   4. ENABLE TOTP, then VERIFY it. The plugin stores the secret encrypted
- *      and only sets `twoFactorEnabled` once the client proves it holds the
- *      secret — a proof the seed makes with scripts/totp.mjs. Setting the
- *      column directly would leave the account with no `auth_two_factor` row,
- *      and the plugin's own verification path would then fail.
- *   5. GRANT THE ROLE, in one statement that sets `twoFactorEnabled` too.
+ *   3. SIGN IN over HTTP and keep the session cookie.
+ *   4. GRANT THE ROLE, in one statement that sets `twoFactorEnabled` too.
  *      `user_mfa_guard_trigger` refuses a privileged row whose
  *      `twoFactorEnabled` is not true, and refuses an attempt to switch MFA
  *      off for a privileged role. One statement satisfies both.
- *   6. WRITE THE DOMAIN ROWS, then call `auth_set_active_org` — the only
+ *   5. WRITE THE DOMAIN ROWS, then call `auth_set_active_org` — the only
  *      function permitted to write `auth_session."orgId"`.
+ *
+ * WHY THERE IS NO TOTP ENROLMENT ANY MORE
+ * ---------------------------------------
+ * This seed used to enable TOTP over HTTP and then prove the secret with
+ * scripts/totp.mjs, because the `twoFactor` plugin challenged every enrolled
+ * account at sign-in and the demo had to answer that challenge to reach a
+ * session. The plugin is no longer installed (see "THE DEMO BUILD" in
+ * packages/auth/src/config.ts): the sign-in is a password and nothing else, and
+ * no challenge is ever issued.
+ *
+ * The `twoFactorEnabled` flag is still written, and it is still REQUIRED for a
+ * privileged role — the policy in roles.ts, the two gates in config.ts and the
+ * `user_mfa_guard_trigger` in the database all refuse a privileged account
+ * without it. The flag is therefore a PROVISIONING state, not a runtime
+ * challenge: the account is created as an enrolled one, and the demo never
+ * asks anyone for a 6-digit code.
  *
  * RE-RUNNING
  * ----------
@@ -54,15 +61,13 @@
  *
  * SECRETS
  * -------
- * The password, the TOTP secrets and the backup codes are written to
- * `.data/seed-role-accounts.json`, which `.gitignore` excludes. Nothing
- * secret is printed to the console.
+ * The password is written to `.data/seed-role-accounts.json`, which
+ * `.gitignore` excludes. Nothing secret is printed to the console.
  */
 
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
-import { generateTotp, parseTotpUri } from "./totp.mjs";
 import {
   CookieJar,
   REPO_ROOT,
@@ -296,32 +301,11 @@ async function main() {
       }
       detail(`signed in`);
 
-      // 5. Enrol TOTP. The plugin hands back the secret in an otpauth:// URI.
-      const enable = await authCall(
-        "/two-factor/enable",
-        { body: { password: LOCAL_PASSWORD, method: "totp" }, jar, baseUrl: origin },
-      );
-      if (enable.status !== 200 || typeof enable.payload?.totpURI !== "string") {
-        fail(`TOTP enrolment for ${account.email} failed with ${enable.status}: ${enable.text}`);
-      }
-      const totp = parseTotpUri(enable.payload.totpURI);
-      const backupCodes = Array.isArray(enable.payload.backupCodes) ? enable.payload.backupCodes : [];
-      detail(`TOTP enrolled`);
-
-      // 6. Prove the secret is held. The plugin rotates the session on success,
-      //    so the cookie jar is refreshed by the call itself.
-      const code = generateTotp(totp.secret, { period: totp.period, digits: totp.digits });
-      const verify = await authCall("/two-factor/verify-totp", { body: { code }, jar, baseUrl: origin });
-      if (verify.status !== 200) {
-        fail(`TOTP verification for ${account.email} failed with ${verify.status}: ${verify.text}`);
-      }
-      detail(`TOTP verified`);
-
-      // 7. Grant the role now that MFA exists.
+      // 5. Grant the role now that MFA exists.
       await grantRole(admin, account.email, account.role);
       detail(`role granted: ${account.role}`);
 
-      // 8. The domain side.
+      // 6. The domain side.
       const userRows = await admin.query(`SELECT id FROM auth_user WHERE "email" = $1`, [account.email]);
       const userId = userRows.rows[0]?.id;
       if (userId === undefined) throw new Error(`no auth_user row for ${account.email}`);
@@ -332,7 +316,7 @@ async function main() {
       await ensureRoleAssignment(admin, personId, roleId);
       detail(`domain rows written`);
 
-      // 9. Give the session an active organisation.
+      // 7. Give the session an active organisation.
       const sessionToken = jar.sessionToken();
       if (sessionToken === undefined) throw new Error(`no session token for ${account.email}`);
       const active = await setActiveOrg(app, sessionToken);
@@ -348,8 +332,6 @@ async function main() {
         name: account.name,
         userId,
         personId,
-        totpSecret: totp.secret,
-        backupCodes,
       });
     }
 
@@ -372,15 +354,18 @@ async function main() {
       detail(`${key}: ${value}`);
     }
 
+    // The flag is the provisioning state the policy reads: a privileged account
+    // without it is refused a session by the gates and by the database trigger.
+    // The `auth_two_factor` table is empty in this build — no challenge is
+    // issued, so no secret is ever created — and the count above says so.
     const privileged = await admin.query(`
-      SELECT u."email", u."role", u."twoFactorEnabled",
-             (SELECT count(*) FROM auth_two_factor f WHERE f."userId" = u."id") AS enrolled
+      SELECT u."email", u."role", u."twoFactorEnabled"
         FROM auth_user u
        WHERE u."role" IN ('manager','admin','owner')
        ORDER BY u."role"
     `);
     for (const user of privileged.rows) {
-      detail(`privileged: ${user.role} ${user.email} mfa=${user.twoFactorEnabled} enrolled=${user.enrolled}`);
+      detail(`privileged: ${user.role} ${user.email} mfa=${user.twoFactorEnabled}`);
     }
 
     mkdirSync(path.dirname(OUTPUT_FILE), { recursive: true });

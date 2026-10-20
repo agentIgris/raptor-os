@@ -178,7 +178,15 @@ describe("Better Auth's expected columns exist with the expected types", () => {
       id: "uuid",
       key: "text",
       count: "integer",
-      lastRequest: "bigint",
+      // `double precision`, NOT `bigint`, and the difference is load-bearing:
+      // node-postgres returns `int8` as a STRING, and Better Auth's rate
+      // limiter does `lastRequest + windowInMs`, which becomes a string
+      // CONCATENATION with an `int8` on the left. The `X-Retry-After` header
+      // then carries ~5.7 million years instead of a number of seconds — a
+      // defect PGlite cannot reproduce, because PGlite returns `int8` as a
+      // number. `double precision` holds epoch milliseconds exactly and comes
+      // back as a number from every driver. See the comment in `schema.sql`.
+      lastRequest: "double precision",
     },
   };
 

@@ -72,6 +72,17 @@ async function attemptSignIn(email: string): Promise<number> {
   return response.status;
 }
 
+/** Attempt a sign-in and return the whole response. */
+async function attemptSignInResponse(email: string): Promise<Response> {
+  return fixture.auth.handler(
+    new Request("http://localhost:3000/api/auth/sign-in/email", {
+      method: "POST",
+      headers: { "content-type": "application/json", origin: "http://localhost:3000" },
+      body: JSON.stringify({ email, password: "deliberately-wrong-password-value" }),
+    }),
+  );
+}
+
 /** Current persisted count for a given rate-limit key, or null when absent. */
 async function counterFor(path: string): Promise<number | null> {
   const result = await fixture.ownerPool.query<{ count: number }>(
@@ -94,6 +105,51 @@ describe("rate limiting on sign-in", () => {
 
     // The next one is refused.
     expect(await attemptSignIn("limited@example.invalid")).toBe(429);
+  });
+
+  it("answers a refusal with a Retry-After a client can actually obey", async () => {
+    // A REGRESSION test for a measured defect.
+    //
+    // The 429 carries `X-Retry-After`, and a client that obeys it waits that
+    // many seconds. The value is computed by Better Auth from the persisted
+    // `lastRequest` (installed `dist/api/rate-limiter/index.mjs`,
+    // `getRetryAfter`): `lastRequest + windowInMs - now`, divided by 1000.
+    //
+    // `lastRequest` was a `bigint`. node-postgres returns `int8` as a STRING,
+    // so the `+` CONCATENATED instead of adding and the header went out as
+    // ~179250434915774 seconds — about 5.7 million years. A client that
+    // trusted it stopped for the heat death of the universe; a client that did
+    // not trust it retried instantly and hammered the endpoint until its own
+    // attempt budget ran out. Both were observed on the running stack.
+    //
+    // WHAT THIS TEST CAN AND CANNOT SEE: the arithmetic only breaks on the
+    // node-postgres driver, because PGlite returns `int8` as a number. So this
+    // asserts the CONTRACT — the header is a number of seconds, inside the
+    // window — which is what any client depends on, and the column TYPE is
+    // pinned separately in `schema.test.ts`, which is the assertion that would
+    // fail if someone put the `bigint` back.
+    await createUser("retry-after@example.invalid");
+    const limit = RATE_LIMITS.signIn.max;
+
+    let refusal: Response | undefined;
+    for (let attempt = 0; attempt <= limit; attempt += 1) {
+      const response = await attemptSignInResponse("retry-after@example.invalid");
+      if (response.status === 429) {
+        refusal = response;
+        break;
+      }
+    }
+    expect(refusal, "the limiter must refuse someone").toBeDefined();
+
+    const header = refusal?.headers.get("x-retry-after");
+    expect(header, "a refusal must say when to come back").not.toBeNull();
+
+    const seconds = Number(header);
+    expect(Number.isFinite(seconds), `X-Retry-After must be a number, got "${header}"`).toBe(true);
+    expect(seconds).toBeGreaterThan(0);
+    expect(seconds, "the wait cannot exceed the window it is waiting out").toBeLessThanOrEqual(
+      RATE_LIMITS.signIn.window,
+    );
   });
 
   it("persists its counter in Postgres rather than in process memory", async () => {

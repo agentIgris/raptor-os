@@ -18,6 +18,21 @@
  * first and observed failing. The mutation harness and its results are recorded
  * in the change report; re-running it is three edits to `config.ts`.
  *
+ * THE DEMO BUILD CHANGED THE INVENTORY, NOT THE METHOD
+ * ------------------------------------------------------
+ * Two of the mutated settings above -- `skipVerificationOnEnable` and the plugin's
+ * account lockout -- belonged to the `twoFactor` plugin, which is not installed
+ * in this build (see "THE DEMO BUILD" in `config.ts`). Their cases are gone
+ * because the settings are gone, and they are replaced below by a case that
+ * pins the replacement behaviour: a privileged account signs in with the
+ * password ALONE, and the challenge routes do not exist.
+ *
+ * That replacement is not a weaker test. It fails if the plugin comes back
+ * (an enrolled account is then CHALLENGED instead of signed in) and it fails if
+ * the enrolment flag stops reaching the after-hook gate (the gate then reads
+ * `false` and refuses an owner who is enrolled). Both are the two ways this
+ * change can go wrong, and the old cases detected neither.
+ *
  * WHY THE MFA GATES NEED TWO SEPARATE TESTS
  * -----------------------------------------
  * Both gates refuse the same request, so the original end-to-end test could not
@@ -38,7 +53,6 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
-import { MFA_MAX_FAILED_ATTEMPTS } from "./config.js";
 import { TEST_PASSWORD, createAuthFixture, truncateAuthTables, type AuthTestFixture } from "./test-helpers.js";
 
 const BASE_URL = "http://localhost:3000";
@@ -92,41 +106,6 @@ async function createLoginableUser(
   return id;
 }
 
-/**
- * Reach the TOTP-enrolled state through the real enrolment endpoint.
- *
- * Two reasons this is not a hand-written row:
- *
- *   - the `twoFactor.secret` column is ENCRYPTED with `BETTER_AUTH_SECRET`, and the
- *     verification route decrypts it before comparing codes. A fixture string
- *     makes `symmetricDecrypt` throw, the route 500s, and `recordTwoFactorFailure`
- *     is never reached -- so a lockout test built on a fake secret measures
- *     nothing and silently passes for the wrong reason.
- *   - enrolment is the only place the secret is produced correctly.
- *
- * The two database writes afterwards stand in for the verification step that would
- * follow, which the `skipVerificationOnEnable` case above covers on its own.
- * Returns the session cookie to use for the challenge that follows.
- */
-async function enrolInTotp(
-  userId: string,
-  email: string,
-  cookie: string,
-): Promise<void> {
-  const enable = await fixture.auth.handler(
-    new Request(`${BASE_URL}/api/auth/two-factor/enable`, {
-      method: "POST",
-      headers: { "content-type": "application/json", origin: BASE_URL, cookie },
-      body: JSON.stringify({ password: TEST_PASSWORD, method: "totp" }),
-    }),
-  );
-  expect(enable.status).toBe(200);
-
-  await fixture.ownerPool.query('UPDATE "auth_two_factor" SET "verified" = true WHERE "userId" = $1', [userId]);
-  await fixture.ownerPool.query('UPDATE "auth_user" SET "twoFactorEnabled" = true WHERE "id" = $1', [userId]);
-  void email;
-}
-
 /** Sign in through the real handler and return the response. */
 async function signIn(email: string, password: string = TEST_PASSWORD): Promise<Response> {
   return fixture.auth.handler(
@@ -149,10 +128,6 @@ async function postWithCookie(path: string, cookie: string, origin?: string): Pr
       body: JSON.stringify({ email: "csrf@example.invalid", password: TEST_PASSWORD }),
     }),
   );
-}
-
-function bareCookie(setCookieHeader: string): string {
-  return setCookieHeader.split(";")[0] ?? "";
 }
 
 beforeAll(async () => {
@@ -294,95 +269,70 @@ describe("disableCSRFCheck", () => {
   });
 });
 
-describe("skipVerificationOnEnable", () => {
-  it("does not mark MFA enabled until the user has proved they hold the secret", async () => {
-    // With `skipVerificationOnEnable: true`, `/two-factor/enable` flips
-    // `twoFactorEnabled` immediately. That would make "MFA enabled" a value a
-    // user can set without ever owning a device, which defeats the whole control
-    // -- including the one this package's MFA enforcement rests on.
-    await createLoginableUser("totp-unverified@example.invalid", "player", false, false);
+describe("the demo sign-in path, with the TOTP challenge gone", () => {
+  it("signs an ENROLLED privileged account in with the password alone", async () => {
+    // The account is enrolled — the flag is true, which is what a privileged
+    // account must carry — and the sign-in still completes. That is the demo
+    // decision, asserted as behaviour rather than described in a comment.
+    //
+    // THE DISCRIMINATOR. With the `twoFactor` plugin installed, this exact
+    // account is CHALLENGED: the sign-in answers 200 with
+    // `{ twoFactorRedirect: true }`, the credential session is deleted, and NO
+    // session row is written. So "the response was 200" proves nothing — the
+    // plugin answers 200 too. What proves the challenge is gone is the SESSION
+    // ROW, and the absence of a challenge cookie.
+    //
+    // The second way this can fail is the flag not reaching the gate. The
+    // after-hook gate reads `twoFactorEnabled` off the session payload, and the
+    // installed adapter drops any column the user model does not declare
+    // (`@better-auth/core`, `db/adapter/factory.mjs`, `transformSingleOutput`).
+    // An undeclared flag reads as `false`, the gate refuses, and the owner is
+    // locked out of their own account with no error message that says why. This
+    // test is the one that catches it: a refusal would answer 401, not 200.
+    await createLoginableUser("demo-owner@example.invalid", "owner", true, false);
 
-    const signInResponse = await signIn("totp-unverified@example.invalid");
-    const cookie = signInResponse.headers
-      .getSetCookie()
-      .find((header) => header.includes("session_token"));
-    if (cookie === undefined) throw new Error("sign-in set no session cookie");
+    const response = await signIn("demo-owner@example.invalid");
+    expect(response.status).toBe(200);
 
-    const enable = await fixture.auth.handler(
+    const cookies = response.headers.getSetCookie();
+    expect(
+      cookies.find((header) => header.includes("two_factor")),
+      "no challenge cookie may be issued when there is no challenge",
+    ).toBeUndefined();
+
+    const rows = await fixture.ownerPool.query<{ n: number }>(
+      'SELECT count(*)::int AS n FROM "auth_session" WHERE "userId" IN (SELECT "id" FROM "auth_user" WHERE "email" = $1)',
+      ["demo-owner@example.invalid"],
+    );
+    expect(rows.rows[0]?.n, "the owner must hold a real session, not a challenge").toBe(1);
+  });
+
+  it("has no two-factor route at all", async () => {
+    // The enrolment route is gone with the plugin. 404 is the answer, and it is
+    // asserted rather than assumed: a route that answered 200 here would mean
+    // something still serves the challenge, and the client would then be
+    // waiting for a code that this build never asks for.
+    const response = await fixture.auth.handler(
       new Request(`${BASE_URL}/api/auth/two-factor/enable`, {
         method: "POST",
-        headers: {
-          "content-type": "application/json",
-          origin: BASE_URL,
-          cookie: bareCookie(cookie),
-        },
+        headers: { "content-type": "application/json", origin: BASE_URL },
         body: JSON.stringify({ password: TEST_PASSWORD, method: "totp" }),
       }),
     );
-    expect(enable.status).toBe(200);
 
-    const rows = await fixture.ownerPool.query<{ enabled: boolean | null; verified: boolean | null }>(
-      `SELECT u."twoFactorEnabled" AS enabled, t."verified" AS verified
-         FROM "auth_user" u JOIN "auth_two_factor" t ON t."userId" = u."id"
-        WHERE u."email" = $1`,
-      ["totp-unverified@example.invalid"],
-    );
-
-    expect(rows.rows[0]?.enabled, "enrolment must not be complete until the code is proved").toBe(false);
-    expect(rows.rows[0]?.verified).toBe(false);
+    expect(response.status).toBe(404);
   });
-});
 
-describe("the MFA accountLockout", () => {
-  it("locks the account after the configured number of failed TOTP codes", async () => {
-    // `accountLockout: { enabled: false }` removes the write entirely, so
-    // `lockedUntil` stays NULL and this fails. With it on, the fifth failure
-    // crosses `maxFailedAttempts` and the account is locked.
-    //
-    // Scope note, stated because it is the boundary that bites: this lockout
-    // covers the 6-digit TOTP code ONLY. A wrong password never reaches
-    // `recordTwoFactorFailure` -- see `signin-throttle.test.ts`, which asserts
-    // the twoFactor counter stays at zero through a full password lockout and
-    // where the password budget actually lives.
-    const email = "totp-lockout@example.invalid";
-    const userId = await createLoginableUser(email, "player", false, false);
+  it("still refuses a privileged account that was never enrolled", async () => {
+    // The policy is NOT part of what the demo switched off. A privileged row
+    // whose flag is not true is refused a session, exactly as before, and the
+    // refusal happens BEFORE the session row is written.
+    await createLoginableUser("demo-unenrolled@example.invalid", "admin", false, true);
 
-    const firstSignIn = await signIn(email);
-    const firstCookie = firstSignIn.headers
-      .getSetCookie()
-      .find((header) => header.includes("session_token"));
-    if (firstCookie === undefined) throw new Error("sign-in set no session cookie");
-    await enrolInTotp(userId, email, bareCookie(firstCookie));
+    const response = await signIn("demo-unenrolled@example.invalid");
+    expect(response.status).toBeGreaterThanOrEqual(400);
 
-    // Now enrolled, so the next sign-in must be CHALLENGED rather than completed.
-    const challenge = await signIn(email);
-    const challengeCookie = challenge.headers
-      .getSetCookie()
-      .find((header) => header.includes("two_factor"));
-    if (challengeCookie === undefined) throw new Error("enrolled sign-in issued no two-factor challenge");
-
-    for (let attempt = 0; attempt < MFA_MAX_FAILED_ATTEMPTS; attempt++) {
-      await fixture.auth.handler(
-        new Request(`${BASE_URL}/api/auth/two-factor/verify-totp`, {
-          method: "POST",
-          headers: {
-            "content-type": "application/json",
-            origin: BASE_URL,
-            cookie: bareCookie(challengeCookie),
-          },
-          body: JSON.stringify({ code: "000000" }),
-        }),
-      );
-    }
-
-    const rows = await fixture.ownerPool.query<{ failed: number | null; locked: Date | null }>(
-      `SELECT t."failedVerificationCount" AS failed, t."lockedUntil" AS locked
-         FROM "auth_two_factor" t JOIN "auth_user" u ON u."id" = t."userId"
-        WHERE u."email" = $1`,
-      [email],
-    );
-
-    expect(rows.rows[0]?.failed ?? 0).toBeGreaterThanOrEqual(MFA_MAX_FAILED_ATTEMPTS);
-    expect(rows.rows[0]?.locked, "the account must be locked, not merely counted").not.toBeNull();
+    const rows = await fixture.ownerPool.query<{ n: number }>('SELECT count(*)::int AS n FROM "auth_session"');
+    expect(rows.rows[0]?.n).toBe(0);
   });
 });

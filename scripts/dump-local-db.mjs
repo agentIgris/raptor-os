@@ -4,13 +4,12 @@
 // Purpose: make a local environment portable. A fresh clone on another machine,
 // after `node scripts/setup-local.mjs`, can replay this snapshot with
 // `node scripts/restore-local-db.mjs` and end up with byte-identical data — the
-// seeded accounts, their password links, the TOTP enrolment (so the SAME
-// authenticator entries keep working), all domain rows and CMS content.
+// seeded accounts, their password links, all domain rows and CMS content.
 //
 // What it writes (all committed to the repo):
 //   scripts/db-local-snapshot/raptor_os.pgdump   full custom-format dump
 //   scripts/db-local-snapshot/seed-role-accounts.json — the credential fixture
-//     that scripts/totp.mjs-style tooling reads (@.data/ is deliberately
+//     that the seed scripts and the role verifier read (@.data/ is deliberately
 //     gitignored; this copy is what makes credentials travel with the repo).
 //
 // The snapshot contains LOCAL-DEV-ONLY data. Nothing here is a production

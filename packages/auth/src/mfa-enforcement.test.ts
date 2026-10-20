@@ -256,14 +256,15 @@ describe("session issuance honours the MFA requirement", () => {
   });
 });
 
-describe("TOTP configuration", () => {
-  it("enables TOTP with an account lockout", () => {
-    // A 6-digit code is only 10^6 values. Without a per-account counter a
-    // distributed attacker gets an unthrottled oracle.
+describe("the TOTP surface", () => {
+  it("keeps the rate limiter on for the paths that remain", () => {
+    // The 6-digit challenge is not issued in this build, so the oracle it would
+    // have opened does not exist. The limiter that does matter is the one on
+    // the sign-in path, and it stays on in every environment.
     expect(fixture.auth.options.rateLimit?.enabled).toBe(true);
   });
 
-  it("persists the TOTP secret in the twoFactor table, never in the user row", async () => {
+  it("holds no secret material anywhere, in the twoFactor table or in the user row", async () => {
     const userId = await createLoginableUser("secret@example.invalid", "player", false);
 
     const secrets = await fixture.ownerPool.query<{ n: number }>('SELECT count(*)::int AS n FROM "auth_two_factor"');
@@ -272,9 +273,9 @@ describe("TOTP configuration", () => {
       [userId],
     );
 
-    // Enrolment has not been performed, so no secret exists — which is the
-    // correct starting state. The assertion is that nothing leaked into the user
-    // row, which has no column for it at all.
+    // No enrolment can happen, so no secret exists — which is the correct
+    // starting state. The assertion is that nothing leaked into the user row,
+    // which has no column for it at all.
     expect(secrets.rows[0]?.n).toBe(0);
     expect(inUser.rows[0]?.n).toBe(0);
   });

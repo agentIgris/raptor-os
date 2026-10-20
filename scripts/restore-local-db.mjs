@@ -89,8 +89,8 @@ try {
   }
 
   // Credentials fixture: .data/ regenerates per machine (gitignored), so hand
-  // the committed copy over so tooling (TOTP helper, seed scripts) sees the
-  // snapshot's accounts.
+  // the committed copy over so tooling (seed scripts, the role verifier) sees
+  // the snapshot's accounts.
   if (existsSync(CRED_FILE)) {
     const dataDir = path.join(REPO_ROOT, ".data");
     mkdirSync(dataDir, { recursive: true });
@@ -102,7 +102,7 @@ try {
     `\nrestore complete. Next steps:\n` +
       `  node scripts/dev-env.mjs   # refresh .env.local / .data env files\n` +
       `  pnpm --filter web dev      # start the local stack on :3000\n` +
-      `Login: owner@raptor.local — credentials and TOTP secret are in\n` +
+      `Login: owner@raptor.local — credentials are in\n` +
       `${CRED_FILE}`,
   );
 } finally {

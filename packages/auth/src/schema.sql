@@ -68,9 +68,12 @@ COMMENT ON FUNCTION current_org_id() IS
 -- helper, which could `upsert({ role: 'admin' })` on a client-bound Supabase
 -- client (AUDIT F-AUTH-03).
 --
--- `twoFactorEnabled` is added by the `twoFactor` plugin. It is nullable because
--- the plugin declares it `required: false` with `defaultValue: false`; making it
--- NOT NULL here would make `auth migrate` report drift.
+-- `twoFactorEnabled` is the enrolment flag the MFA policy reads. It is declared
+-- on the user model in `config.ts` — `input: false`, `defaultValue: false` — so
+-- no client can assert it and an account created without MFA carries it
+-- explicitly false rather than NULL. It is nullable because the model declares
+-- it `required: false`; making it NOT NULL here would make `auth migrate`
+-- report drift.
 -- -----------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS "auth_user" (
@@ -272,17 +275,53 @@ CREATE INDEX IF NOT EXISTS "twoFactor_userId_idx" ON "auth_two_factor" ("userId"
 -- resets on every deploy and every restart, so an attacker able to induce a
 -- restart resets their own budget; and it is per-process, so N instances
 -- multiply the effective limit by N.
+--
+-- `lastRequest` IS `double precision`, AND THAT IS NOT A DETAIL
+-- -----------------------------------------------------------
+-- It holds epoch MILLISECONDS (~1.79e12), which `double precision` represents
+-- exactly (2^53 is ~9.0e15) and which every driver returns as a JavaScript
+-- NUMBER.
+--
+-- The type it replaced, `bigint`, does not. node-postgres returns `int8` as a
+-- STRING — it is the default, because a bigint can exceed JavaScript's safe
+-- integer range and the driver refuses to guess. Better Auth's rate limiter
+-- then does arithmetic on that value: `lastRequest + windowInMs - now`
+-- (installed `dist/api/rate-limiter/index.mjs`, `getRetryAfter`). With a
+-- string on the left of a `+`, JavaScript CONCATENATES instead of adding, so
+-- the difference the server computed became
+--
+--     "1792522274496" + 60000 - now   ->   "179252227449660000" - now
+--
+-- and the `X-Retry-After` header went out as ~179250434915774 SECONDS — about
+-- 5.7 million years. Measured against the running stack: a client that obeys
+-- the header waits until the heat death of the universe, and a client that
+-- does not (like `scripts/lib/local-dev-auth.mjs`) retries instantly and
+-- hammers the endpoint until its attempt budget runs out.
+--
+-- The trap is that the TEST DATABASE DOES NOT REPRODUCE IT: PGlite returns
+-- `int8` as a number, so every rate-limit test passed while production
+-- answered a garbage header. That is why the type is pinned here, in the DDL,
+-- where one line fixes it for every driver — rather than in a driver
+-- configuration that only one of the two pools would carry.
 -- -----------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS "auth_rate_limit" (
   "id"          uuid   DEFAULT pg_catalog.gen_random_uuid() NOT NULL PRIMARY KEY,
   "key"         text   NOT NULL UNIQUE,
   "count"       integer NOT NULL,
-  "lastRequest" bigint  NOT NULL,
+  "lastRequest" double precision NOT NULL,
 
   CONSTRAINT rate_limit_count_nonnegative_check     CHECK ("count" >= 0),
   CONSTRAINT rate_limit_last_request_nonnegative_check CHECK ("lastRequest" >= 0)
 );
+
+-- Repairs the drift case where the table was created with the `bigint` column
+-- this file used to declare. `USING` is explicit because `bigint -> double
+-- precision` is not an implicit cast; every value in the column is an epoch
+-- millisecond count well inside the exact range of a double, so the conversion
+-- is lossless.
+ALTER TABLE "auth_rate_limit"
+  ALTER COLUMN "lastRequest" TYPE double precision USING "lastRequest"::double precision;
 
 -- =============================================================================
 -- MANDATORY MFA FOR PRIVILEGED ROLES — ENFORCED HERE, NOT IN A HELPER
@@ -615,23 +654,50 @@ GRANT EXECUTE ON FUNCTION auth_set_active_org(text, uuid) TO raptor_app;
 -- still cannot OPEN any of them with anything but the function above.
 -- -----------------------------------------------------------------------------
 
+-- LANGUAGE plpgsql, NOT `sql` — AND THAT IS NOT A STYLE CHOICE
+-- -----------------------------------------------------------
+-- A `LANGUAGE sql` function is PARSED AND ITS RELATIONS RESOLVED WHEN IT IS
+-- CREATED. This one reads three tables that belong to `packages/db`
+-- (`person_credential_link`, `org_membership`, `organization`), so creating it
+-- requires those tables to ALREADY EXIST. That is an ordering dependency
+-- between two packages' schemas, and it fails loudly and confusingly when the
+-- order is wrong: measured, applying this file without `packages/db` first
+-- aborts the whole transaction with
+-- `relation "public.person_credential_link" does not exist`, and every test
+-- that needs a database then fails on the aborted transaction instead of on
+-- the thing it is testing.
+--
+-- `LANGUAGE plpgsql` resolves the body at CALL time, not at creation time, so
+-- this file applies in any order. That is the same reason its sister
+-- `auth_set_active_org` above is plpgsql — the two functions were always
+-- going to be the same shape, because they read the same three tables.
+--
+-- The trade-off is that plpgsql is not inlined like a `sql` function. For a
+-- function that returns a handful of rows once per session it is not
+-- measurable, and the price of "this schema must be applied after another
+-- package's" is a deployment that breaks in the order nobody remembered.
+-- -----------------------------------------------------------------------------
+
 CREATE OR REPLACE FUNCTION auth_active_orgs_for_token(p_token text)
 RETURNS TABLE(org_id uuid, display_name text, slug text)
-LANGUAGE sql
+LANGUAGE plpgsql
 STABLE
 SECURITY DEFINER
 SET search_path = ''
 AS $$
-  SELECT m."org_id", o.display_name, o.slug
-    FROM public."auth_session" s
-    JOIN public.person_credential_link l
-      ON l.user_id = s."userId"
-    JOIN public.org_membership m
-      ON m.person_id = l.person_id
-     AND m."status" = 'active'
-    JOIN public.organization o
-      ON o.id = m."org_id"
-   WHERE s."token" = p_token;
+BEGIN
+  RETURN QUERY
+    SELECT m."org_id", o.display_name, o.slug
+      FROM public."auth_session" s
+      JOIN public.person_credential_link l
+        ON l.user_id = s."userId"
+      JOIN public.org_membership m
+        ON m.person_id = l.person_id
+       AND m."status" = 'active'
+      JOIN public.organization o
+        ON o.id = m."org_id"
+     WHERE s."token" = p_token;
+END
 $$;
 
 COMMENT ON FUNCTION auth_active_orgs_for_token(text) IS

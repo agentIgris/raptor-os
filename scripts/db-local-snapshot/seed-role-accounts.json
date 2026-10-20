@@ -6,147 +6,56 @@
       "email": "owner@raptor.local",
       "password": "raptor_local_dev_only",
       "name": "Raptor Owner",
-      "userId": "fec8bd6d-1030-4dde-be99-a63bd62c6bf3",
-      "personId": "29602f2d-5e1a-467d-88d0-42fd8001d30c",
-      "totpSecret": "JBYVM42RJVUEMQTSJJUS2TLXORYW6MDPJJSEES2KIRGDA4DGOIWQ",
-      "backupCodes": [
-        "aVUZf-6ynWr",
-        "c4vP5-yTsev",
-        "PvDYP-OQKTH",
-        "T0tFf-0Lti9",
-        "cqm0S-LLepK",
-        "wkVLR-kX145",
-        "sY53T-G5pxq",
-        "WVGqG-zNhAk",
-        "0GwGq-S7F0T",
-        "uHldk-e75uB"
-      ]
+      "userId": "6f106c92-94c6-43df-85e0-d4b02d31c8a9",
+      "personId": "29602f2d-5e1a-467d-88d0-42fd8001d30c"
     },
     {
       "role": "admin",
       "email": "admin@raptor.local",
       "password": "raptor_local_dev_only",
       "name": "Raptor Admin",
-      "userId": "753d2294-999f-4b4d-8f69-28d7dd0a0fda",
-      "personId": "8e23a0ab-ff7b-4d5a-ad4c-c67baa12e203",
-      "totpSecret": "OJSFO3DGOFBU2ZJYINMXGZTOHBBGM43IGFZEC2LSO52GQVBQM4ZA",
-      "backupCodes": [
-        "X2DPh-aSsH6",
-        "gPgQf-7ZXpD",
-        "Rnsmd-Ajxur",
-        "Lg4M8-BZNOR",
-        "Ur7wJ-zh9GW",
-        "GX6xJ-BRy68",
-        "yVMJT-sjeF1",
-        "8SFpY-f24gG",
-        "ZFPi5-EVA76",
-        "wXBw9-aQse9"
-      ]
+      "userId": "58439657-d317-4aea-a7f7-ec2846402fbf",
+      "personId": "8e23a0ab-ff7b-4d5a-ad4c-c67baa12e203"
     },
     {
       "role": "manager",
       "email": "manager@raptor.local",
       "password": "raptor_local_dev_only",
       "name": "Raptor Manager",
-      "userId": "08c1ee76-38ed-418a-b26a-046d14a61f15",
-      "personId": "e09e4b95-9fd1-4e0b-bdd3-229dfd188f89",
-      "totpSecret": "NREW24SQKZRGW2SSOQ4DE42HN5GUINTUOJPVG42PHBKECRTHOM4A",
-      "backupCodes": [
-        "950bE-LcWw1",
-        "tgGG9-ngjch",
-        "cVABf-FBQGX",
-        "EPh7y-ReK7f",
-        "hZ0AL-jvbWp",
-        "l7CuW-GXye0",
-        "KUBgZ-MyG3V",
-        "d9NdB-G1mNT",
-        "pQ053-PlLdc",
-        "0ESMy-zAXn6"
-      ]
+      "userId": "477bcb1a-2e2d-4973-b2d6-d2ec0439f134",
+      "personId": "e09e4b95-9fd1-4e0b-bdd3-229dfd188f89"
     },
     {
       "role": "analyst",
       "email": "analyst@raptor.local",
       "password": "raptor_local_dev_only",
       "name": "Raptor Analyst",
-      "userId": "7d36d077-765f-4dce-ba29-cf2a8d6df9cd",
-      "personId": "8a11ef60-03fe-40ec-bddb-a58c4d7c526b",
-      "totpSecret": "GYYHAVDEKNMU45BZK5QWMMLDN5JTI53FMQ3GOZ2EMMYG42SJLJYQ",
-      "backupCodes": [
-        "updxk-rQqnw",
-        "tvEE1-h3NwZ",
-        "DLDLR-ZXeBY",
-        "FqTOF-y35AY",
-        "GSnwU-dWejg",
-        "2sBXV-rbTm4",
-        "s3UhB-fYKnv",
-        "J4nq7-ZMNr8",
-        "Vm6dD-RC1mK",
-        "FtTE2-JW8iz"
-      ]
+      "userId": "ff4a0cf7-cd40-4a12-8f50-151dcc331c15",
+      "personId": "8a11ef60-03fe-40ec-bddb-a58c4d7c526b"
     },
     {
       "role": "coach",
       "email": "coach@raptor.local",
       "password": "raptor_local_dev_only",
       "name": "Raptor Coach",
-      "userId": "910b46f7-ad1c-45cc-b6e3-be7a0488609d",
-      "personId": "b6e1b1e7-eccb-41d7-ad4b-f9540981db7f",
-      "totpSecret": "GJIGOTTFORYFCR3OL5KTOYKVGRBXMVCQKZXWEZ3CMFFEK2SDKVGA",
-      "backupCodes": [
-        "9Kxgy-abPvF",
-        "UxCMl-BpLek",
-        "oSoey-JOecz",
-        "jbTfw-Ji18J",
-        "LGZta-57P1h",
-        "UbKES-g1cnN",
-        "z9sW8-HxmzP",
-        "aOL1n-9JEAf",
-        "gSN5o-7iah9",
-        "T5Q6V-6M1Sq"
-      ]
+      "userId": "784726e6-b45c-4898-9695-cd83cdd9c947",
+      "personId": "b6e1b1e7-eccb-41d7-ad4b-f9540981db7f"
     },
     {
       "role": "player",
       "email": "player@raptor.local",
       "password": "raptor_local_dev_only",
       "name": "Raptor Player",
-      "userId": "e40febf9-3d79-4886-9a4e-ae1affa3bf31",
-      "personId": "b6741a99-1bb5-4dee-8aaa-e56995dc06b1",
-      "totpSecret": "NZ2HQSKYJ4WUGODKHFGFC52YMRMTANDQIRSTI5JWJAWXQ23ENZGQ",
-      "backupCodes": [
-        "KJktL-hpBiB",
-        "OsZd0-gWsoJ",
-        "UL58E-5m5to",
-        "nt7k0-j9ToS",
-        "ecZKA-1ByzU",
-        "aHyIf-oLKcH",
-        "qhIGK-HZU8N",
-        "rxIgh-YTJuz",
-        "c7TD3-asRZW",
-        "7lsjV-HYVDM"
-      ]
+      "userId": "cbe9002e-fa27-4e36-8393-c79188b7a693",
+      "personId": "b6741a99-1bb5-4dee-8aaa-e56995dc06b1"
     },
     {
       "role": "pending",
       "email": "pending@raptor.local",
       "password": "raptor_local_dev_only",
       "name": "Raptor Pending",
-      "userId": "cc39f43d-a7e8-4f12-aca0-a785d3f4e52f",
-      "personId": "3960732c-c70b-4253-8579-ccefdfff35ad",
-      "totpSecret": "LB3WWNZNK5LGSYRVIFDVU4LNORRWO43LMIYDCVSSKBDW452IKAZA",
-      "backupCodes": [
-        "jgscw-Qh2CC",
-        "2qaVz-XeAZg",
-        "WJ5sZ-pSsiz",
-        "9PAqp-KUED2",
-        "LPH7s-cTLHx",
-        "kSbEW-3rFJ7",
-        "usPvt-QXTZn",
-        "e77dU-bM4aZ",
-        "UOsLM-Lw5Xe",
-        "u7aDT-4WSMd"
-      ]
+      "userId": "a9b720d5-cf19-450c-bd5e-6db4411416b4",
+      "personId": "3960732c-c70b-4253-8579-ccefdfff35ad"
     }
   ]
 }
