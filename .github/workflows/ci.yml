@@ -72,9 +72,21 @@ jobs:
         run: pnpm audit --prod --audit-level high
 
       # ADR-0012: the build gates must stay enabled.
+      #
+      # The check is for the gate being ENABLED, not for the word appearing.
+      # `apps/web/next.config.ts` sets `ignoreBuildErrors: false` on purpose —
+      # the literal `false` rather than the property's absence, so a test can
+      # assert it — and its header explains at length why. A grep for the bare
+      # property names therefore matched a file that had the gate ON and
+      # correctly disabled, and failed the build for the wrong reason. A gate
+      # that fires on the correct code is a gate people learn to ignore.
+      #
+      # `apps/web/src/__tests__/build-gates.test.ts` asserts the resolved value
+      # of the real config, so the pair is: the test proves the value, and this
+      # grep catches a literal `true` appearing in ANY config.
       - name: Assert build gates are not disabled
         run: |
-          if grep -rqE 'ignoreBuildErrors|ignoreDuringBuilds' apps packages \
+          if grep -rnE 'ignore(BuildErrors|DuringBuilds)[[:space:]]*:[[:space:]]*true' apps packages \
             --include='next.config.*' --include='*.config.*'; then
             echo "::error::ignoreBuildErrors / ignoreDuringBuilds must never be enabled (ADR-0012)"
             exit 1
