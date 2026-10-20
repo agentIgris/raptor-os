@@ -89,6 +89,37 @@ export default tseslint.config(
     rules: { "@typescript-eslint/no-floating-promises": "off" },
   },
 
+  // The local scripts are CLI TOOLS, and they are linted on their own terms.
+  //
+  // They were invisible to the linter for a long time: the project service
+  // could not load a file that no tsconfig included, so every script in this
+  // directory produced a PARSING error and the repo-wide lint was red.
+  // `scripts/tsconfig.json` gives the linter a project to load them from, and
+  // the rules below are the ones that make sense for a script.
+  {
+    files: ["scripts/**/*.mjs", "scripts/**/*.ts"],
+    rules: {
+      // A SCRIPT'S OUTPUT IS ITS INTERFACE. `console.log` is how a setup
+      // script reports what it did; the rule exists so that application code
+      // emits structured logs instead of loose lines, and a script has no
+      // logger to emit them with.
+      "no-console": "off",
+      // These are plain Node ESM files with no type annotations, so every
+      // value the type-aware rules see is `any`. Flagging that would be
+      // flagging the absence of a type system rather than a defect.
+      "@typescript-eslint/no-unsafe-assignment": "off",
+      "@typescript-eslint/no-unsafe-member-access": "off",
+      "@typescript-eslint/no-unsafe-argument": "off",
+      "@typescript-eslint/no-unsafe-call": "off",
+      "@typescript-eslint/no-unsafe-return": "off",
+      "@typescript-eslint/no-unnecessary-condition": "off",
+      // The money rule stays — but a script parsing a millisecond counter is
+      // not money, and `parseInt` with an explicit radix is the correct call
+      // where it is used.
+      "no-restricted-globals": "off",
+    },
+  },
+
   // Payload-generated migrations: the runner calls `up({ db, payload, req })`
   // positionally, so `payload`/`req` are unused by every migration that only
   // needs `db`. Generated on each `migrate:create`; hand-editing them per file

@@ -2,7 +2,7 @@
 
 **Status:** Accepted · **Date:** 2026-10-09
 **Resolves:** a gap surfaced while implementing [ADR-0017](0017-session-is-identity-not-tenant-scoped.md)
-**Relates to:** [ADR-0007](0007-better-auth-self-hosted.md), [ADR-0011](0011-composite-foreign-keys-for-tenancy.md)
+**Relates to:** [ADR-0007](0007-self-hosted-better-auth.md), [ADR-0011](0011-composite-foreign-keys-for-tenancy.md)
 
 ## The gap
 

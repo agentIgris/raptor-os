@@ -1,7 +1,7 @@
 # ADR-0020 — Supabase CLI adopted for schema tooling; the local stack needs Docker
 
 **Status:** Accepted · **Date:** 2026-10-11
-**Relates to:** [ADR-0008](0008-node-native-infrastructure-substitutes.md), [ADR-0015](0015-pglite-restored-after-native-postgres-retest.md), [ADR-0007](0007-better-auth-self-hosted.md)
+**Relates to:** [ADR-0008](0008-node-native-infrastructure-substitutes.md), [ADR-0015](0015-pglite-restored-after-native-postgres-retest.md), [ADR-0007](0007-self-hosted-better-auth.md)
 **Supersedes:** the "no Docker" constraint in ADR-0008
 
 ## Decision

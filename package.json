@@ -9,6 +9,8 @@
                 },
     "packageManager":  "pnpm@12.10.1",
     "scripts":  {
+                    "bootstrap":  "node scripts/bootstrap-local.mjs",
+                    "docs:check":  "node scripts/check-doc-links.mjs",
                     "build":  "turbo run build",
                     "dev":  "turbo run dev",
                     "dev:local":  "node scripts/dev-env.mjs",

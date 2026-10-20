@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/akshuu21/raptor-os/security/advisories/new
+    about: Report a vulnerability privately. Please do not open a public issue.
+  - name: Setup problem
+    url: https://github.com/akshuu21/raptor-os/blob/main/docs/SETUP.md#troubleshooting
+    about: The troubleshooting table covers the common local failures.
+  - name: How to work on this repository
+    url: https://github.com/akshuu21/raptor-os/blob/main/docs/AI-AGENT-GUIDE.md
+    about: The agent playbook: bootstrap, invariants, verification, the traps.

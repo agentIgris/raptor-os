@@ -1,0 +1,62 @@
+name: Feature request
+description: Suggest a capability, a change to an existing one, or a rule
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What cannot be done today, and who it blocks.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you would like to happen
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which part of the system
+      options:
+        - Identity and access
+        - Tenancy and data
+        - Domain rules
+        - Public site
+        - Workspace
+        - Assistant
+        - CMS and content
+        - Design system
+        - Tooling, scripts and CI
+        - Documentation
+    validations:
+      required: true
+
+  - type: textarea
+    id: rules
+    attributes:
+      label: The rules it would have to obey
+      description: |
+        Which invariant does this touch — the role policy, the enrolment
+        flag, forced RLS, the session contract? If the answer is "none",
+        say so; it is a useful thing to know.
+    validations:
+      required: false
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you considered
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I searched the existing issues and the ADRs
+          required: true

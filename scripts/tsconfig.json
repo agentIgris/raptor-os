@@ -1,9 +1,27 @@
 {
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "//": [
+    "The local scripts are plain Node ESM, and they were invisible to the linter:",
+    "the repository's ESLint config uses the TypeScript project service, and a",
+    "file that no tsconfig includes fails to load with \"was not found by the",
+    "project service\". Every script in this directory therefore produced a",
+    "parsing error and the repo-wide lint (`pnpm exec eslint . --max-warnings 0`,",
+    "the command the CI build-gate job runs) was red.",
+    "",
+    "This project gives the linter a project to load them from. `checkJs` is on",
+    "so the type-aware rules have real types to work with, and `noEmit` is on",
+    "because the scripts are executed by `node`, never compiled."
+  ],
   "extends": "../tsconfig.base.json",
   "compilerOptions": {
+    "allowJs": true,
+    "checkJs": true,
     "noEmit": true,
+    "composite": false,
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false,
     "types": ["node"]
   },
-  "include": ["./**/*.ts"],
-  "exclude": ["../node_modules", "../**/node_modules"]
+  "include": ["**/*.mjs", "**/*.ts"]
 }

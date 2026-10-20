@@ -1,0 +1,28 @@
+# License
+
+**Copyright © Raptor OS contributors. All rights reserved.**
+
+This repository is published for viewing and for the purpose of contributing
+to it. It is not licensed for redistribution, sublicensing, resale or use in
+a commercial product, and no permission is granted to do so.
+
+## The local passwords in this repository
+
+The credentials that appear in this repository — `raptor_local_dev_only` and
+the seeded account addresses — are development constants for a PostgreSQL
+instance bound to loopback. They unlock nothing else, and they are not
+secrets. Every real secret (`BETTER_AUTH_SECRET`, `PAYLOAD_SECRET`, database
+passwords, API keys) is environment-supplied, gitignored, and refused by the
+code when it is missing, empty or a known placeholder.
+
+## Changing this
+
+If the owner publishes an open-source license for this repository, it replaces
+this file in its entirety, and the SPDX identifier in every `package.json`
+will be updated in the same change.
+
+## Third-party code
+
+This repository depends on third-party packages under their own licenses.
+Those licenses apply to the dependencies, not to this repository's own
+contents.

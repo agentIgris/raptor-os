@@ -5,7 +5,7 @@ import { join } from "node:path";
  * Public art resolution with placeholder fallback.
  *
  * Convention: `/placeholders/<kind>-<slug>.png` wins when present (exact
- * dimensions per BRAND-ASSETS-REQUIRED.md), otherwise the generic
+ * dimensions per docs/product/BRAND-ASSETS-REQUIRED.md), otherwise the generic
  * placeholder for that kind. Existence is checked server-side at render, so
  * a missing file degrades to the placeholder instead of a broken image.
  *

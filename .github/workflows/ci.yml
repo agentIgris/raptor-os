@@ -101,6 +101,12 @@ jobs:
           ls packages/db/migrations/*.sql | xargs -n1 basename | cut -c1-4 | sort | uniq -d \
             | grep . && { echo "::error::duplicate migration prefix"; exit 1; } || echo "ledger ok"
 
+      # A link only breaks when a file is MOVED, which is exactly when nobody
+      # is looking at the documentation. Two ADR links were broken that way
+      # before this gate existed.
+      - name: Assert every relative documentation link resolves
+        run: node scripts/check-doc-links.mjs
+
   build-gate:
     name: Build gates enabled
     runs-on: ubuntu-latest

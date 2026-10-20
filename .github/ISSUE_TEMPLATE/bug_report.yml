@@ -1,0 +1,82 @@
+name: Bug report
+description: Something behaves in a way it should not
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for the report. Please do not use this form for security
+        vulnerabilities — use the private advisory process in SECURITY.md.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+      placeholder: |
+        I signed in as owner@raptor.local and pressed "Sign in".
+        Expected: the workspace dashboard.
+        Happened: a 403 with "Your account's role cannot use the assistant."
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      value: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Where
+      options:
+        - Public site
+        - Workspace
+        - Assistant
+        - CMS admin
+        - Sign-in
+        - API
+        - Database / migrations
+        - Build, lint or tests
+        - Something else
+    validations:
+      required: true
+
+  - type: input
+    id: role
+    attributes:
+      label: Which account
+      description: The seeded account, if the report involves one.
+      placeholder: owner@raptor.local
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Output or logs
+      description: The error text, the failing assertion, the response body.
+      render: shell
+    validations:
+      required: false
+
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, Node version, pnpm version, PostgreSQL version.
+      placeholder: Windows 11, Node 24.13, pnpm 12.10.1, PostgreSQL 16
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I searched the existing issues and the documentation
+          required: true
+        - label: This is not a security vulnerability (those go to the private advisory process)
+          required: true

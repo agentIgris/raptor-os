@@ -58,6 +58,23 @@ const { Client } = requireFromDb("pg");
 export { Client };
 
 /**
+ * Parse a response body into a value a caller can branch on.
+ *
+ * JSON when the body is JSON, the raw text when it is not, and `null` for an
+ * empty body. The raw-text fallback is the point: a 500 from a proxy answers
+ * HTML, and a caller that only understood JSON would report "no response"
+ * for an error it should have shown.
+ */
+function parsePayload(text) {
+  if (text === "") return null;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
+}
+
+/**
  * Parse `.env.local` into a map. Values stay in this process; none are
  * printed. Mirrors scripts/dev-env.mjs so every tool reads the same file the
  * same way.
@@ -221,12 +238,7 @@ export async function authCall(routePath, { method = "POST", body, jar, baseUrl:
     }
 
     const text = await response.text();
-    let payload = null;
-    try {
-      payload = text === "" ? null : JSON.parse(text);
-    } catch {
-      payload = text;
-    }
+    const payload = parsePayload(text);
     return { status: response.status, payload, text };
   }
 
@@ -252,12 +264,7 @@ export async function appPost(routePath, body, { jar, baseUrl: origin } = {}) {
   if (jar !== undefined) jar.absorb(response);
 
   const text = await response.text();
-  let payload = null;
-  try {
-    payload = text === "" ? null : JSON.parse(text);
-  } catch {
-    payload = text;
-  }
+  const payload = parsePayload(text);
   return { status: response.status, payload, text, headers: response.headers };
 }
 
