@@ -585,6 +585,62 @@ REVOKE ALL ON FUNCTION auth_set_active_org(text, uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION auth_set_active_org(text, uuid) TO raptor_app;
 
 -- -----------------------------------------------------------------------------
+-- auth_active_orgs_for_token — READ-ONLY DISCOVERY, SISTER TO auth_set_active_org
+--
+-- Signing in should land a person in their organisation without them having to
+-- know or paste an opaque id. Answering "which orgs can this session enter?"
+-- requires reading `org_membership`, which `raptor_app` cannot read directly —
+-- it is forced-RLS in `packages/db` and RLS is keyed on a *current* org, which
+-- is exactly the thing a fresh session does not have yet. Same shape as
+-- `auth_set_active_org` above (ADR-0006): `SECURITY DEFINER` +
+-- `SET search_path = ''` + schema-qualified names, so the elevation cannot be
+-- aimed at a substituted object.
+--
+-- The same three-step resolution applies, and the same two of them are controls:
+-- the token names the user (the query cannot be aimed at someone else's
+-- memberships), and the identity boundary ADR-0018 is crossed through
+-- `person_credential_link` — a user with no link resolves to no person, joins
+-- to nothing, and the answer is an empty set. Only ACTIVE memberships are
+-- returned: a pending invitation is not an organisation you can enter.
+--
+-- It is STABLE and touches nothing: discovery answers a question, it does not
+-- change one. If it returns more than one row the UI must send the person to
+-- the switcher instead of guessing; picking the org is still done through
+-- `auth_set_active_org`, which re-verifies. This function being wrong in the
+-- generous direction cannot therefore make a person able to enter an org they
+-- do not belong to — and being wrong in the stingy direction just means the
+-- switcher gets used, which always worked.
+--
+-- It is deliberately read-only: the app role can LEARN which doors exist, it
+-- still cannot OPEN any of them with anything but the function above.
+-- -----------------------------------------------------------------------------
+
+CREATE OR REPLACE FUNCTION auth_active_orgs_for_token(p_token text)
+RETURNS TABLE(org_id uuid, display_name text, slug text)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+  SELECT m."org_id", o.display_name, o.slug
+    FROM public."auth_session" s
+    JOIN public.person_credential_link l
+      ON l.user_id = s."userId"
+    JOIN public.org_membership m
+      ON m.person_id = l.person_id
+     AND m."status" = 'active'
+    JOIN public.organization o
+      ON o.id = m."org_id"
+   WHERE s."token" = p_token;
+$$;
+
+COMMENT ON FUNCTION auth_active_orgs_for_token(text) IS
+  'Lists the organisations an ACTIVE org_membership row proves the token holder belongs to. Read-only: returns the set, writes nothing.';
+
+REVOKE ALL ON FUNCTION auth_active_orgs_for_token(text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION auth_active_orgs_for_token(text) TO raptor_app;
+
+-- -----------------------------------------------------------------------------
 -- IDENTITY TABLES: PROTECTED BY ROLE, NOT BY TENANT
 --
 -- "auth_account" AND "auth_verification" NEED NO SPECIAL TREATMENT, and that is worth

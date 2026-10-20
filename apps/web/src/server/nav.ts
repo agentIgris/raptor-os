@@ -39,7 +39,10 @@ const EVERYONE: readonly Role[] = [...ALL_ROLES];
 const NAV: readonly NavGroup[] = [
   {
     title: "Overview",
-    entries: [{ href: "/dashboard", label: "Dashboard", implemented: true, roles: EVERYONE }],
+    entries: [
+      { href: "/dashboard", label: "Dashboard", implemented: true, roles: EVERYONE },
+      { href: "/assistant", label: "Assistant", implemented: true, roles: ["player", "coach", "analyst", ...MANAGERS] },
+    ],
   },
   {
     title: "Competitive",

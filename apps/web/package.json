@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@payloadcms/next": "3.90.2",
+    "@raptor/assistant": "workspace:*",
     "@raptor/auth": "workspace:*",
     "@raptor/cms": "workspace:*",
     "@raptor/core": "workspace:*",

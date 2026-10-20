@@ -17,6 +17,11 @@ export interface SiteHeaderProps {
    * a recruitment button with closed recruitment strands the applicant.
    */
   readonly recruitmentOpen?: boolean;
+  /**
+   * Extra classes from the layout, i.e. the `next/font` variable declarations
+   * (the header sits outside `<main>`, so it has to receive them itself).
+   */
+  readonly className?: string;
 }
 
 /**
@@ -44,7 +49,11 @@ const CORE_LINKS = [
  * Join call-to-action lives in `actions` (always visible, never buried in the
  * mobile disclosure); Sign in stays a quiet last nav item.
  */
-export function SiteHeader({ showPartners = false, recruitmentOpen = false }: SiteHeaderProps): React.JSX.Element {
+export function SiteHeader({
+  showPartners = false,
+  recruitmentOpen = false,
+  className = "",
+}: SiteHeaderProps): React.JSX.Element {
   const pathname = usePathname();
   const items = [
     ...CORE_LINKS,
@@ -56,22 +65,29 @@ export function SiteHeader({ showPartners = false, recruitmentOpen = false }: Si
   }));
 
   return (
-    <header className="sticky top-0 z-40 border-b border-hairline bg-canvas">
-      <div className="mx-auto w-full max-w-6xl">
+    <header
+      className={`${className} dc-bg-void dc-stripes sticky top-0 z-40 border-b-2 border-b-[var(--dc-line)] shadow-[0_2px_0_rgb(255_62_181/35%)]`}
+    >
+      <div className="mx-auto w-full max-w-6xl px-2">
         <PrimaryNav
           brand={
             <a
               href="/"
-              className="flex min-h-11 touch-manipulation items-center gap-2 text-[length:var(--text-md)] font-bold tracking-[var(--tracking-tight)] break-words text-ink no-underline"
+              className="flex min-h-11 touch-manipulation items-center gap-2 text-[length:var(--text-md)] break-words no-underline"
             >
               <Image
                 src="/placeholders/logo.svg"
                 alt="Raptor Esports logo"
                 width={32}
                 height={32}
-                className="h-8 w-8"
+                className="h-8 w-8 dc-tilt-l"
               />
-              <span translate="no">Raptor&nbsp;Esports</span>
+              <span
+                translate="no"
+                className="font-super dc-ink text-sm tracking-[0.02em] tabular-nums"
+              >
+                Raptor&nbsp;Esports
+              </span>
             </a>
           }
           items={items}

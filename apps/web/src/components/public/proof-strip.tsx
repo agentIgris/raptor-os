@@ -26,14 +26,16 @@ export function ProofStrip({ facts }: { facts: ProofFacts | null }): React.JSX.E
   if (facts.results > 0) entries.push({ label: "Verified results", count: facts.results });
   if (entries.length === 0) return null;
   return (
-    <section aria-label="Organisation facts" className="border-b border-hairline">
+    <section aria-label="Organisation facts" className="dc-bg-panel dc-stripes border-b-2 border-b-[var(--dc-line)]">
       <dl className="mx-auto flex w-full max-w-6xl flex-wrap gap-x-10 gap-y-3 px-4 py-5 md:px-8">
-        {entries.map((entry) => (
+        {entries.map((entry, index) => (
           <div key={entry.label} className="flex items-baseline gap-2">
-            <dt className="text-[length:var(--text-xs)] font-semibold tracking-[var(--tracking-wide)] text-ink-faint uppercase">
+            <dt className="font-super text-[length:var(--text-xs)] tracking-[var(--tracking-wide)] text-[var(--dc-cyan)] uppercase">
               {entry.label}
             </dt>
-            <dd className="text-[length:var(--text-2xl)] leading-[var(--leading-tight)] font-bold tabular-nums text-ink">
+            <dd
+              className={`text-[length:var(--text-2xl)] leading-[var(--leading-tight)] font-black tabular-nums ${index % 2 === 0 ? "text-[var(--dc-sun)]" : "text-[var(--dc-ink)]"}`}
+            >
               {entry.count}
             </dd>
           </div>

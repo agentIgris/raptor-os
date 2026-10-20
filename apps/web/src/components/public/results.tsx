@@ -18,7 +18,11 @@ function placementLabel(result: PublicResult): string {
  */
 export function Results({ data }: { data: readonly PublicResult[] | null }): React.JSX.Element {
   return (
-    <section aria-labelledby="results" id="results" className="mx-auto w-full max-w-6xl scroll-mt-20 px-4 py-10 md:px-8">
+    <section
+      aria-labelledby="results"
+      id="results"
+      className="mx-auto w-full max-w-6xl scroll-mt-20 px-4 py-10 md:px-8"
+    >
       <SectionHeading
         id="results"
         title="Results & honours"
@@ -32,25 +36,35 @@ export function Results({ data }: { data: readonly PublicResult[] | null }): Rea
           description="Placements appear here once competitions complete and results are verified."
         />
       ) : (
-        <Table label="Verified results">
-          <TableCaption>Most recent verified placements first.</TableCaption>
-          <TableHead>
-            <TableRow>
-              <TableHeaderCell scope="col">Event</TableHeaderCell>
-              <TableHeaderCell scope="col">Team</TableHeaderCell>
-              <TableHeaderCell scope="col">Placement</TableHeaderCell>
-              <TableHeaderCell scope="col">Date</TableHeaderCell>
+        <Table
+          label="Verified results"
+          wrapperClassName="dc-bg-panel dc-hard-violet mt-6 rounded-lg border-2 border-[var(--dc-line)]"
+        >
+          <TableCaption className="text-[var(--dc-ink-faint)]">Most recent verified placements first.</TableCaption>
+          <TableHead className="bg-transparent">
+            <TableRow className="border-b-2 border-b-[var(--dc-line)]">
+              <TableHeaderCell className="font-super bg-transparent border-b-2 border-b-[var(--dc-line)] text-[var(--dc-cyan)]">Event</TableHeaderCell>
+              <TableHeaderCell className="font-super bg-transparent border-b-2 border-b-[var(--dc-line)] text-[var(--dc-cyan)]">Team</TableHeaderCell>
+              <TableHeaderCell className="font-super bg-transparent border-b-2 border-b-[var(--dc-line)] text-[var(--dc-cyan)]">Placement</TableHeaderCell>
+              <TableHeaderCell className="font-super bg-transparent border-b-2 border-b-[var(--dc-line)] text-[var(--dc-cyan)]">Date</TableHeaderCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {data.map((row, index) => (
-              <TableRow key={`${row.event}-${row.team}-${row.date}-${index}`}>
-                <TableRowHeader>{row.event}</TableRowHeader>
-                <TableCell>{row.team}</TableCell>
-                <TableCell>
-                  <Badge tone={row.placement === 1 ? "success" : "neutral"}>{placementLabel(row)}</Badge>
+              <TableRow key={`${row.event}-${row.team}-${row.date}-${index}`} className="border-b-[var(--dc-line)]">
+                <TableRowHeader className="font-display border-b-[var(--dc-line)] font-bold text-[var(--dc-ink)]">{row.event}</TableRowHeader>
+                <TableCell className="border-b-[var(--dc-line)] text-[var(--dc-ink-dim)]">{row.team}</TableCell>
+                <TableCell className="border-b-[var(--dc-line)]">
+                  <Badge
+                    tone={row.placement === 1 ? "success" : "neutral"}
+                    className={row.placement === 1 ? "dc-fill-sun" : "dc-fill-violet"}
+                  >
+                    {placementLabel(row)}
+                  </Badge>
                 </TableCell>
-                <TableCell className="tabular-nums">{row.date}</TableCell>
+                <TableCell className="border-b-[var(--dc-line)] text-[var(--dc-ink-dim)] tabular-nums">
+                  {row.date}
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>

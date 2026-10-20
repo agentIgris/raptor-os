@@ -1,0 +1,372 @@
+/* ==========================================================================
+   (site) dopamine layer — the public site's decorative skin.
+
+   WHY THIS FILE EXISTS AND WHERE IT STOPS
+   ---------------------------------------
+   `frontend.md` asks for maximalist "Y2K / hyperpop" energy on the public
+   site while the OS routes keep the validated token system untouched. This
+   file is the entire distance between the two: a scoped layer of fixed,
+   brand-locked colours, patterns and motion that is imported ONLY by
+   `(site)/layout.tsx` and referenced ONLY through `dc-*` class names.
+   Nothing here redefines a token in `packages/ui`, so the token mirrors and
+   their contrast tests keep computing exactly what they computed before.
+
+   HOW IT IS SCOPED
+   ----------------
+   Every class assumes its colour variables were declared on an ancestor with
+   `.dc-scope` (the site layout puts it on `<main>`, the header and the
+   footer get the variables too). Elements outside a `.dc-scope` subtree are
+   completely unaffected — the OS workspace never declares the scope, so the
+   fan-site palette cannot leak into it even by accident.
+
+   HOW IT OBEYS THE A11Y CONTRACT WITHOUT REPEATING THE TOKEN TESTS
+   ---------------------------------------------------------------
+   Every colour pair used by readable text is picked to pass its WCAG ratio
+   against the two surfaces it can land on in this layer (`--dc-void`,
+   `--dc-panel` — dark by design; this layer paints its own stage so the
+   palette does not depend on the OS theme):
+
+     --dc-ink       ~16:1 on void/panel          (any size)
+     --dc-ink-dim   ~9:1                          (any size)
+     --dc-sun       ~14:1                         (any size)
+     --dc-lime      ~13:1                         (any size)
+     --dc-cyan      ~11:1                         (any size)
+     --dc-violet    ~6.9:1                        (any size)
+     --dc-hot       ~5.9:1                        (any size)
+     dark-on-pop    ~5.9–14:1 on hot/cyan/lime/sun fills (any size)
+
+   Fills (--dc-fill-*) always pair with the same dark ink, never with white.
+   Text shadows, hard shadows and glows are decoration only: they duplicate
+   readable glyphs, so axe cannot compare their colours and the ratios above
+   remain the ones that matter.
+
+   MOTION
+   ------
+   Keyframes here die automatically: `packages/ui` globals.css already
+   nulls every animation/transition under `prefers-reduced-motion` with
+   `!important`, which wins the cascade against plain-declaration keyframes.
+   Nothing is re-declared per element.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. Variables — the fixed fan-site palette, declared on the scope only.
+   -------------------------------------------------------------------------- */
+
+.dc-scope {
+  /* Stage + panel: not pure black — same reasoning as the OS token file. */
+  --dc-void: #0d0d1a;
+  --dc-panel: #171227;
+  --dc-line: #3b2a63;
+
+  /* Readable ink ramp on the stage. */
+  --dc-ink: #f2f0ff;
+  --dc-ink-dim: #b9b3d9;
+  --dc-ink-faint: #8f88b8;
+
+  /* Pop accents. Violet is lightened past #8b5cf6 to clear 4.5:1 as text. */
+  --dc-hot: #ff3eb5;
+  --dc-violet: #a78bfa;
+  --dc-cyan: #33e1ff;
+  --dc-lime: #9bff3b;
+  --dc-sun: #ffe24b;
+
+  /* Ink used on top of pop fills — dark, never white. */
+  --dc-on-pop: #0d0d1a;
+}
+
+/* --------------------------------------------------------------------------
+   2. Surfaces.
+   -------------------------------------------------------------------------- */
+
+.dc-bg-void {
+  background-color: var(--dc-void);
+  color: var(--dc-ink);
+}
+
+.dc-bg-panel {
+  background-color: var(--dc-panel);
+  color: var(--dc-ink);
+}
+
+/* Border colour for the darker cards; pair with border utilities in TSX. */
+.dc-line {
+  border-color: var(--dc-line);
+}
+
+/* --------------------------------------------------------------------------
+   3. Text colours. Every one clears its ratio on void AND panel (see header).
+   -------------------------------------------------------------------------- */
+
+.dc-ink {
+  color: var(--dc-ink);
+}
+
+.dc-ink-dim {
+  color: var(--dc-ink-dim);
+}
+
+.dc-ink-faint {
+  color: var(--dc-ink-faint);
+}
+
+.dc-hot {
+  color: var(--dc-hot);
+}
+
+.dc-violet {
+  color: var(--dc-violet);
+}
+
+.dc-cyan {
+  color: var(--dc-cyan);
+}
+
+.dc-lime {
+  color: var(--dc-lime);
+}
+
+.dc-sun {
+  color: var(--dc-sun);
+}
+
+/* --------------------------------------------------------------------------
+   4. Pop fills. Always rendered with dark ink via these classes, because the
+      ink is the pairing that was verified, not the background alone.
+   -------------------------------------------------------------------------- */
+
+.dc-fill-hot {
+  background-color: var(--dc-hot);
+  color: var(--dc-on-pop);
+}
+
+.dc-fill-violet {
+  background-color: var(--dc-violet);
+  color: var(--dc-on-pop);
+}
+
+.dc-fill-cyan {
+  background-color: var(--dc-cyan);
+  color: var(--dc-on-pop);
+}
+
+.dc-fill-lime {
+  background-color: var(--dc-lime);
+  color: var(--dc-on-pop);
+}
+
+.dc-fill-sun {
+  background-color: var(--dc-sun);
+  color: var(--dc-on-pop);
+}
+
+/* --------------------------------------------------------------------------
+   5. Decoration - offset "hard" shadows, glow and stacked text shadows.
+      Pure decoration: applied to elements whose readable state (border +
+      background + the ratio-checked text) stands on its own.
+   -------------------------------------------------------------------------- */
+
+.dc-hard-hot {
+  box-shadow: 4px 4px 0 var(--dc-hot);
+}
+
+.dc-hard-violet {
+  box-shadow: 4px 4px 0 var(--dc-violet);
+}
+
+.dc-hard-cyan {
+  box-shadow: 4px 4px 0 var(--dc-cyan);
+}
+
+.dc-hard-lime {
+  box-shadow: 4px 4px 0 var(--dc-lime);
+}
+
+.dc-hard-sun {
+  box-shadow: 4px 4px 0 var(--dc-sun);
+}
+
+.dc-glow {
+  box-shadow:
+    0 0 24px 2px rgb(255 62 181 / 35%),
+    0 0 48px 4px rgb(167 139 250 / 25%);
+}
+
+.dc-text-stack {
+  /* Two hard steps behind readable glyphs; the glyphs carry their own ratio. */
+  text-shadow:
+    2px 2px 0 var(--dc-void),
+    4px 4px 0 rgb(255 62 181 / 55%);
+}
+
+.dc-text-undershadow {
+  text-shadow:
+    2px 2px 0 var(--dc-void),
+    3px 3px 0 var(--dc-cyan);
+}
+
+/* --------------------------------------------------------------------------
+   6. Patterns — CSS-only texture, no image weight, no CSP entries.
+   -------------------------------------------------------------------------- */
+
+.dc-dots {
+  background-image: radial-gradient(rgb(242 240 255 / 10%) 1.5px, transparent 1.5px);
+  background-size: 18px 18px;
+}
+
+.dc-stripes {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    transparent 0 10px,
+    rgb(255 62 181 / 14%) 10px 20px
+  );
+}
+
+.dc-grid {
+  background-image:
+    linear-gradient(rgb(242 240 255 / 6%) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(242 240 255 / 6%) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+
+.dc-mesh {
+  background-image:
+    radial-gradient(42rem 24rem at 8% -12%, rgb(255 62 181 / 24%), transparent 62%),
+    radial-gradient(38rem 22rem at 96% 4%, rgb(51 225 255 / 20%), transparent 64%),
+    radial-gradient(30rem 20rem at 55% 120%, rgb(167 139 250 / 22%), transparent 60%);
+}
+
+/* --------------------------------------------------------------------------
+   7. Motion. The global reduced-motion block in `packages/ui` annuls all of
+      it for users who ask the OS to hold still.
+   -------------------------------------------------------------------------- */
+
+@keyframes dc-marquee {
+  from {
+    transform: translateX(0);
+  }
+
+  to {
+    transform: translateX(-100%);
+  }
+}
+
+.dc-marquee {
+  display: flex;
+  overflow: hidden;
+}
+
+.dc-marquee-track {
+  display: flex;
+  flex: none;
+  gap: 2rem;
+  padding-right: 2rem;
+  min-width: 100%;
+  animation: dc-marquee 26s linear infinite;
+}
+
+@keyframes dc-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+.dc-float {
+  animation: dc-float 5.5s ease-in-out infinite;
+}
+
+@keyframes dc-spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.dc-spinslow {
+  animation: dc-spin 14s linear infinite;
+}
+
+/* Conic dash used as a decorative "signal ring" around badges/art. */
+.dc-ring {
+  border-radius: 9999px;
+  border: 6px solid transparent;
+  border-top-color: var(--dc-hot);
+  border-right-color: var(--dc-cyan);
+}
+
+/* --------------------------------------------------------------------------
+   8. Transform play. `transform` over the standalone `rotate` property so the
+      hard shadows rotate with the element instead of fighting it.
+   -------------------------------------------------------------------------- */
+
+.dc-tilt-l {
+  transform: rotate(-1.5deg);
+}
+
+.dc-tilt-r {
+  transform: rotate(1.5deg);
+}
+
+/* --------------------------------------------------------------------------
+   9. Dark-chrome retints. The public header carries `dc-scope` + `dc-bg-void`
+      itself, so the light-theme tokens the ui primitives paint inside it
+      (PrimaryNav links, ThemeToggle chip, mobile menu button) land on
+      near-black and vanish. Re-tint those descendants here rather than fork
+      the primitives; the plain-heading selector specificity comfortably beats
+      the one- and two-class utility Arbiters, so the dark-band states win.
+   -------------------------------------------------------------------------- */
+
+.dc-bg-void.dc-scope {
+  color: var(--dc-ink-dim);
+}
+
+.dc-bg-void.dc-scope nav a {
+  border-radius: 9999px;
+  transition:
+    color var(--duration-fast) ease,
+    background-color var(--duration-fast) ease;
+}
+
+.dc-bg-void.dc-scope nav a[href^="/#"] {
+  color: var(--dc-ink-dim);
+}
+
+.dc-bg-void.dc-scope nav a[href^="/#"]:hover {
+  color: var(--dc-ink);
+  background-color: rgb(255 62 181 / 14%);
+}
+
+.dc-bg-void.dc-scope nav a[href^="/#"][aria-current="page"] {
+  color: var(--dc-sun);
+  background-color: rgb(255 226 75 / 14%);
+}
+
+.dc-bg-void.dc-scope nav a[href="/sign-in"] {
+  color: var(--dc-ink-faint);
+}
+
+.dc-bg-void.dc-scope nav a[href="/sign-in"]:hover {
+  color: var(--dc-ink);
+  background-color: rgb(255 62 181 / 14%);
+}
+
+.dc-bg-void.dc-scope nav button {
+  border-color: var(--dc-line);
+  color: var(--dc-ink);
+  background-color: transparent;
+  transition:
+    color var(--duration-fast) ease,
+    background-color var(--duration-fast) ease,
+    border-color var(--duration-fast) ease;
+}
+
+.dc-bg-void.dc-scope nav button:hover {
+  background-color: var(--dc-panel);
+}

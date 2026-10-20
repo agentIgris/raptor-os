@@ -13,16 +13,16 @@ export function Partners({ data }: { data: readonly CmsPartner[] | null }): Reac
   return (
     <section aria-labelledby="partners" id="partners" className="mx-auto w-full max-w-6xl scroll-mt-20 px-4 py-10 md:px-8">
       <SectionHeading id="partners" title="Partners" description="Organisations that back Raptor." />
-      <ul className="mt-6 flex flex-wrap gap-x-8 gap-y-3">
-        {data.map((partner) => (
+      <ul className="mt-6 flex flex-wrap gap-3">
+        {data.map((partner, index) => (
           <li
             key={partner.name}
-            className="text-[length:var(--text-md)] font-semibold tracking-[var(--tracking-tight)] text-ink-muted"
+            className={`${index % 3 === 0 ? "dc-fill-violet dc-hard-hot" : index % 3 === 1 ? "dc-fill-cyan dc-hard-lime" : "dc-fill-sun dc-hard-cyan"} rounded-full border-2 border-[var(--dc-on-pop)] px-4 py-1 text-[length:var(--text-md)] font-bold tracking-[var(--tracking-tight)]`}
           >
             {partner.url === null ? (
               <span translate="no">{partner.name}</span>
             ) : (
-              <a href={partner.url} rel="noopener sponsored" target="_blank" translate="no" className="underline decoration-hairline underline-offset-4 hover:text-ink">
+              <a href={partner.url} rel="noopener sponsored" target="_blank" translate="no">
                 {partner.name}
               </a>
             )}

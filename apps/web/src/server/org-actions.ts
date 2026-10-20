@@ -65,6 +65,59 @@ function switchPool(): Pool {
 }
 
 /**
+ * Bind the session's single organisation, if there is exactly one.
+ *
+ * Discovery uses `auth_active_orgs_for_token(token)` — the same definer that
+ * guards `auth_set_active_org` answers "which orgs can this session enter?",
+ * because `org_membership` is forced-RLS and a fresh session has no org context
+ * of its own to read it with. The one-row case then still goes through
+ * `auth_set_active_org`, which re-verifies membership before writing `orgId`:
+ * discovery is a convenience, never authority.
+ *
+ * One organisation is bound; zero is a person who has no membership yet (their
+ * dashboard says so); MORE than one is a real choice, not a guess — the caller
+ * is expected to send them to the switcher. Best-effort by contract: it returns
+ * a boolean, never throws into the caller's render, and a failure always leaves
+ * the pre-existing behaviour (manual switcher) fully intact.
+ *
+ * @returns whether an organisation was bound to the session.
+ */
+export async function bindDefaultOrg(): Promise<boolean> {
+  const token = await sessionToken();
+  if (token === null) return false;
+
+  const pool = switchPool();
+  try {
+    const found = await pool.query<{ org_id: string; display_name: string; slug: string }>(
+      "SELECT org_id, display_name, slug FROM auth_active_orgs_for_token($1)",
+      [token],
+    );
+    if (found.rows.length !== 1) return false;
+    const org = found.rows[0];
+    if (org === undefined) return false;
+
+    const bound = await pool.query<{ auth_set_active_org: boolean }>("SELECT auth_set_active_org($1, $2)", [
+      token,
+      org.org_id,
+    ]);
+    if (bound.rows[0]?.auth_set_active_org !== true) return false;
+
+    const jar = await cookies();
+    const recents = parseRecentOrgs(jar.get(RECENT_COOKIE)?.value).filter((entry) => entry.id !== org.org_id);
+    jar.set(RECENT_COOKIE, JSON.stringify([{ id: org.org_id, name: org.display_name }, ...recents].slice(0, 5)), {
+      httpOnly: true,
+      sameSite: "lax",
+      path: "/",
+    });
+    return true;
+  } catch {
+    return false;
+  } finally {
+    await pool.end();
+  }
+}
+
+/**
  * Switch the session's active organisation.
  *
  * @returns an error message for the form, or redirects on success (which

@@ -18,13 +18,17 @@
 
 /* Public-site display type.
  *
- * The OS workspace stays on the system sans; the fan site gets a condensed
- * display face for headlines (hero, section titles). The variable is set by
- * `next/font` on the `(site)` layout — this utility only consumes it, so a
- * page rendered outside that layout falls back to a system condensed stack
- * rather than breaking.
+ * The OS workspace stays on the system sans; the fan site gets a display face
+ * for headlines (hero, section titles) and a caps-only "sticker" face for
+ * stamps/tickers. The variables are set by `next/font` on the `(site)` layout
+ * — these utilities only consume them, so a page rendered outside that layout
+ * falls back to a system condensed stack rather than breaking.
  */
 .font-display {
   font-family: var(--font-display), "Arial Narrow", var(--font-sans);
   letter-spacing: var(--tracking-tight);
+}
+
+.font-super {
+  font-family: var(--font-super), "Impact", var(--font-display), var(--font-sans);
 }

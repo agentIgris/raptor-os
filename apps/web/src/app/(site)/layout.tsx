@@ -1,22 +1,31 @@
 import type { Metadata } from "next";
-import { Oswald } from "next/font/google";
+import { Outfit, Bungee } from "next/font/google";
 
 import { PageFooter, SkipLink } from "@raptor/ui";
 
 import { SiteHeader } from "../../components/site-header";
 
+import "./dopamine.css";
+
 /**
- * Display face for the public site only.
+ * Faces for the public site only.
  *
- * Oswald (condensed, 500–700) carries headlines; body and UI stay on the
- * system sans. Scoped to the `(site)` layout so the workspace keeps the OS
- * look. `next/font` self-hosts the files, which keeps the font CSP-safe
- * (`font-src 'self'` in `src/proxy.ts`).
+ * Outfit (700–900) carries headlines; Bungee is the caps-only sticker face
+ * for stamps and tickers. Body and UI stay on the system sans. Scoped to the
+ * `(site)` layout so the workspace keeps the OS look. `next/font` self-hosts
+ * the files, which keeps the font CSP-safe (`font-src 'self'` in
+ * `src/proxy.ts`).
  */
-const display = Oswald({
+const display = Outfit({
   subsets: ["latin"],
-  weight: ["500", "600", "700"],
+  weight: ["700", "800", "900"],
   variable: "--font-display",
+  display: "swap",
+});
+const super8 = Bungee({
+  subsets: ["latin"],
+  weight: "400",
+  variable: "--font-super",
   display: "swap",
 });
 
@@ -74,11 +83,41 @@ export default function SiteLayout({
   return (
     <>
       <SkipLink href="#main" />
-      <SiteHeader />
-      <main id="main" tabIndex={-1} className={`${display.variable} flex min-w-0 flex-1 flex-col`}>
+      <SiteHeader className={`${super8.variable} dc-scope`} />
+      <main
+        id="main"
+        tabIndex={-1}
+        className={`${display.variable} ${super8.variable} dc-scope flex min-w-0 flex-1 flex-col`}
+      >
         {children}
       </main>
-      <PageFooter>
+      <PageFooter className={`${super8.variable} dc-scope`}>
+        <div
+          aria-hidden="true"
+          className="dc-bg-void dc-mesh relative mb-6 -mx-4 overflow-hidden px-4 py-6 md:-mx-8 md:px-8"
+        >
+          <div className="dc-marquee">
+            <div className="dc-marquee-track">
+              {[0, 1].map((copy) => (
+                <span
+                  key={copy}
+                  className="font-super dc-text-undershadow flex shrink-0 gap-8 text-sm whitespace-nowrap"
+                >
+                  {["Raptor Esports", "Verified results", "No rumours", "Teams & news"].map(
+                    (word, wordIndex) => (
+                      <span key={wordIndex} className="dc-ink-dim">
+                        {word}
+                        <span aria-hidden="true" className="dc-sun ml-8">
+                          ✦
+                        </span>
+                      </span>
+                    ),
+                  )}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
         <p>
           <span translate="no">Raptor Esports</span> — rosters, results and news. Verified content only.
         </p>

@@ -11,7 +11,11 @@ import { EmptyState, SectionHeading } from "@raptor/ui";
  */
 export function About(): React.JSX.Element {
   return (
-    <section aria-labelledby="about" id="about" className="mx-auto w-full max-w-6xl scroll-mt-20 px-4 py-10 md:px-8">
+    <section
+      aria-labelledby="about"
+      id="about"
+      className="mx-auto w-full max-w-6xl scroll-mt-20 px-4 py-10 md:px-8"
+    >
       <SectionHeading id="about" title="About Raptor" description="Who we are." />
       <EmptyState
         title="Story coming soon"

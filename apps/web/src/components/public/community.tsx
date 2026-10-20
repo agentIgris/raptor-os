@@ -13,13 +13,21 @@ export function Community({ data }: { data: readonly CmsSocial[] | null }): Reac
     <section aria-labelledby="community" id="community" className="mx-auto w-full max-w-6xl scroll-mt-20 px-4 py-10 md:px-8">
       <SectionHeading id="community" title="Follow Raptor" description="Official channels, nowhere else." />
       <ul className="mt-6 flex flex-wrap gap-3">
-        {data.map((social) => (
+        {data.map((social, index) => (
           <li key={`${social.network}:${social.url}`}>
-            <Button asChild variant="outline">
-              <a href={social.url} rel="me noopener" target="_blank">
-                {social.network}
-              </a>
-            </Button>
+            {index % 2 === 0 ? (
+              <Button asChild className="dc-fill-hot dc-hard-violet border-2 border-[var(--dc-on-pop)] rounded-full px-5 font-bold text-[var(--dc-on-pop)]">
+                <a href={social.url} rel="me noopener" target="_blank">
+                  {social.network}
+                </a>
+              </Button>
+            ) : (
+              <Button asChild variant="outline">
+                <a href={social.url} rel="me noopener" target="_blank">
+                  {social.network}
+                </a>
+              </Button>
+            )}
           </li>
         ))}
       </ul>
@@ -35,7 +43,11 @@ export function Community({ data }: { data: readonly CmsSocial[] | null }): Reac
 export function Recruitment({ data }: { data: CmsRecruitment | null }): React.JSX.Element {
   const open = data?.open ?? false;
   return (
-    <section aria-labelledby="recruitment" id="recruitment" className="mx-auto w-full max-w-6xl scroll-mt-20 px-4 py-10 md:px-8">
+    <section
+      aria-labelledby="recruitment"
+      id="recruitment"
+      className="mx-auto w-full max-w-6xl scroll-mt-20 px-4 py-10 md:px-8"
+    >
       <SectionHeading
         id="recruitment"
         title={open ? (data?.heading ?? "Join Raptor") : "Get in touch"}
@@ -47,7 +59,7 @@ export function Recruitment({ data }: { data: CmsRecruitment | null }): React.JS
       />
       {open && data?.formTarget ? (
         <div className="mt-6">
-          <Button asChild>
+          <Button asChild size="lg" className="dc-fill-hot dc-hard-cyan border-2 border-[var(--dc-on-pop)] font-bold text-[var(--dc-on-pop)]">
             <a href={data.formTarget} rel="noopener" target="_blank">
               Apply now
             </a>
