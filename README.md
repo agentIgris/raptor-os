@@ -92,9 +92,14 @@ pnpm dev:local
 `pnpm bootstrap` is idempotent and non-interactive: it checks the
 prerequisites, creates the databases and the three roles (`raptor_app`,
 `raptor_migrator`, `cms_app`), applies the domain migrations, the identity
-schema, the CMS provisioning and the Payload migrations, writes `.env.local`
-with freshly generated secrets, seeds a preview tenant and the seven role
-accounts, and prints the result.
+schema, the CMS provisioning and the Payload migrations, seeds the preview
+data **and the preview content** — the news, the partner strip, the site
+settings, the recruitment panel — writes `.env.local` with freshly generated
+secrets, seeds the seven role accounts, and prints the result.
+
+The art travels with the clone: 20 committed files in
+`apps/web/public/placeholders/`, resolved by handle, so the roster shows its
+own portraits rather than a generic placeholder.
 
 The step-by-step path, and what to do when something fails, is in
 **[docs/SETUP.md](./docs/SETUP.md)**.

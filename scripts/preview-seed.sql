@@ -75,22 +75,50 @@ VALUES ('1d2c3992-8eb2-40cd-833f-9c4fa75471b4', '0c295a27-1295-4dcf-9a0e-2f77a77
         'forming', true)
 ON CONFLICT (org_id, slug) DO NOTHING;
 
--- Players (handles researched October 2026; preview-marked, public profiles)
+-- Players (preview-marked, public profiles)
+--
+-- THE HANDLES ARE THE ART FILENAMES, AND THAT IS THE POINT
+-- -------------------------------------------------------
+-- The public roster resolves a portrait by handle: the site asks for
+-- `/placeholders/player-<handle>.png` and falls back to the generic
+-- `player-portrait.svg` when that file does not exist
+-- (`apps/web/src/components/public/art.ts`). The committed art is named for
+-- five handles - RExANNA, RExFURRYJOD, RExIGRIS, RExSANKU, RExZEROIGL - and
+-- they are the handles seeded here.
+--
+-- They used not to match: the seed carried five researched display names
+-- ("Jelly", "Hydro" and so on) while the art carried the REx* set, so the
+-- roster resolved NOTHING and every portrait on the site was the generic
+-- placeholder. The art was committed, reachable by nobody, and the symptom
+-- read as "the images are missing". The portraits are illustrated brand art
+-- in the Raptor palette, not photographs of people, so pairing them with a
+-- handle is a naming decision and not an attribution one.
+--
+-- A handle change means renaming the art to match, or changing the seed to
+-- match the art. This file follows the art, because the art is the expensive
+-- half to produce and the reviewed half.
 INSERT INTO public.person (id, external_ref) VALUES
-  ('b44f16ba-1efb-4ac8-b2ee-96467a874885', 'preview:player-jelly'),
-  ('25c9ce24-d98c-42b3-8fc8-e4377c79ca03', 'preview:player-kiolmao'),
-  ('294f46af-4b43-4583-aa48-731c9f75c6f2', 'preview:player-harsh'),
-  ('7ebd2393-f935-4d8f-9e96-92071f02a0c3', 'preview:player-hydro'),
-  ('4908ae96-c0d1-4de6-827a-68fc0862b131', 'preview:player-rony')
-ON CONFLICT DO NOTHING;
+  ('b44f16ba-1efb-4ac8-b2ee-96467a874885', 'preview:player-rexigris'),
+  ('25c9ce24-d98c-42b3-8fc8-e4377c79ca03', 'preview:player-rexanna'),
+  ('294f46af-4b43-4583-aa48-731c9f75c6f2', 'preview:player-rexsanku'),
+  ('7ebd2393-f935-4d8f-9e96-92071f02a0c3', 'preview:player-rexfurryjod'),
+  ('4908ae96-c0d1-4de6-827a-68fc0862b131', 'preview:player-rexzeroigl')
+ON CONFLICT (id) DO UPDATE SET external_ref = EXCLUDED.external_ref;
 
+-- `display_name` IS the handle for the public roster: `roster_handles()`
+-- returns `person_profile.display_name` as the handle, because a person has no
+-- separate handle column in this schema. That is why the portrait lookup above
+-- works on this value.
+--
+-- The upsert UPDATES rather than doing nothing: a seed that cannot converge an
+-- existing row is a seed that only works on a database that has never seen it.
 INSERT INTO public.person_profile (person_id, display_name, profile_visibility) VALUES
-  ('b44f16ba-1efb-4ac8-b2ee-96467a874885', 'Jelly', 'public'),
-  ('25c9ce24-d98c-42b3-8fc8-e4377c79ca03', 'KioLmao', 'public'),
-  ('294f46af-4b43-4583-aa48-731c9f75c6f2', 'Harsh', 'public'),
-  ('7ebd2393-f935-4d8f-9e96-92071f02a0c3', 'Hydro', 'public'),
-  ('4908ae96-c0d1-4de6-827a-68fc0862b131', 'Rony', 'public')
-ON CONFLICT (person_id) DO NOTHING;
+  ('b44f16ba-1efb-4ac8-b2ee-96467a874885', 'RExIGRIS', 'public'),
+  ('25c9ce24-d98c-42b3-8fc8-e4377c79ca03', 'RExANNA', 'public'),
+  ('294f46af-4b43-4583-aa48-731c9f75c6f2', 'RExSANKU', 'public'),
+  ('7ebd2393-f935-4d8f-9e96-92071f02a0c3', 'RExFURRYJOD', 'public'),
+  ('4908ae96-c0d1-4de6-827a-68fc0862b131', 'RExZEROIGL', 'public')
+ON CONFLICT (person_id) DO UPDATE SET display_name = EXCLUDED.display_name;
 
 INSERT INTO public.team_membership (org_id, team_id, person_id, role_in_team, share_percent, valid_from, joined_at) VALUES
   ('0c295a27-1295-4dcf-9a0e-2f77a772f14d', '444f49a2-3065-4fa4-8a5a-fd2a14e24fd5', 'b44f16ba-1efb-4ac8-b2ee-96467a874885', 'captain', 0, '2025-03-27T00:00:00Z', '2025-03-27T00:00:00Z'),

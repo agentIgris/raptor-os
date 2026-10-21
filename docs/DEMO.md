@@ -42,7 +42,7 @@ clone can reach a filled-in environment without re-seeding:
 
 ```sh
 pnpm install
-node scripts/setup-local.mjs      # databases, roles, schema, preview data
+node scripts/setup-local.mjs     # create the database and the roles
 node scripts/restore-local-db.mjs # replay the snapshot
 pnpm dev:local
 ```
@@ -54,6 +54,13 @@ that file agree.
 > The snapshot holds LOCAL-DEV-ONLY data — fixed local passwords and a
 > development database. It is not a production export, and the restore script
 > must never be pointed at a real environment.
+
+> The snapshot is a COPY, not the only copy. Everything in it is also
+> reproducible from the two committed seeds, so the demo content does not
+> depend on restoring a binary blob: `scripts/preview-seed.sql` for the
+> domain rows and `scripts/preview-seed-cms.sql` for the content. That
+> separation is deliberate — content in a binary is content nobody can review.
+
 
 ---
 
@@ -81,7 +88,13 @@ to promote without the enrolment flag.
 
 1. **The public site** (`/`) — the fan-facing surface. Teams, competitions,
    partners and news, all read from published content through the
-   public-read views.
+   public-read views. The three news stories, the partner strip, the
+   recruitment panel and the site settings come from
+   `scripts/preview-seed-cms.sql`, and the art from
+   `apps/web/public/placeholders/` — the portraits resolve by handle, so the
+   roster shows `RExIGRIS`, `RExANNA`, `RExSANKU`, `RExFURRYJOD` and
+   `RExZEROIGL` with their own illustrations rather than the generic
+   placeholder.
 2. **Sign in** (`/sign-in`) — one field, one password. This build does not
    ask for a 6-digit code; see §6.
 3. **The workspace** (`/dashboard`) — sign in as `coach@raptor.local`. The

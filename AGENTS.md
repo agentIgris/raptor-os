@@ -96,6 +96,7 @@ Where things belong:
 | a schema change | a NEW file in `packages/db/migrations/` |
 | a page or component | `apps/web/src/app/(site)` or `(app)`, on `@raptor/ui` primitives |
 | a publishable content type | `packages/cms/src/` plus a Payload migration |
+| preview data or preview content | `scripts/preview-seed.sql` (domain) or `scripts/preview-seed-cms.sql` (CMS) — never only inside the database snapshot |
 | an auth behaviour | `packages/auth/src/config.ts`, with the reason in the header |
 
 ---
@@ -146,5 +147,7 @@ verified**. The pull request template is in
 | An undeclared column vanishes from a payload | the adapter builds returned objects from the model's **declared** fields | declare the field on the model |
 | `LANGUAGE sql` in a schema file | the function needs another package's tables to exist at CREATE time | use `plpgsql` |
 | `bigint` and node-postgres | `int8` comes back as a string and `+` concatenates | use `double precision` for arithmetic values |
+| A handle and its portrait drift apart | the roster silently shows the generic portrait | the seed and `apps/web/public/placeholders/` must agree; `preview-content.test.ts` checks it |
+| Content only in the database snapshot | a clone that runs `pnpm bootstrap` has no news, no partners, no site settings | seed it in `scripts/preview-seed-cms.sql` |
 | `pnpm dev` without `dev:local` | every auth route answers 503 | use `pnpm dev:local` |
 | PowerShell mangles `\|\|` and quotes | a command works in bash and not here | write a temporary `.mjs` and run it with `node` |

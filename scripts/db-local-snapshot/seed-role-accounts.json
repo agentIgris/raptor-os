@@ -6,56 +6,56 @@
       "email": "owner@raptor.local",
       "password": "raptor_local_dev_only",
       "name": "Raptor Owner",
-      "userId": "6f106c92-94c6-43df-85e0-d4b02d31c8a9",
-      "personId": "29602f2d-5e1a-467d-88d0-42fd8001d30c"
+      "userId": "4f5091d7-d946-408d-9780-b20a79451bbb",
+      "personId": "658b0e05-2797-4d4c-a91d-8bd9dc8e6606"
     },
     {
       "role": "admin",
       "email": "admin@raptor.local",
       "password": "raptor_local_dev_only",
       "name": "Raptor Admin",
-      "userId": "58439657-d317-4aea-a7f7-ec2846402fbf",
-      "personId": "8e23a0ab-ff7b-4d5a-ad4c-c67baa12e203"
+      "userId": "91f8d892-5030-400e-89de-b5eb307acfc8",
+      "personId": "965a9b17-ce96-4db5-816f-d703d2b436b3"
     },
     {
       "role": "manager",
       "email": "manager@raptor.local",
       "password": "raptor_local_dev_only",
       "name": "Raptor Manager",
-      "userId": "477bcb1a-2e2d-4973-b2d6-d2ec0439f134",
-      "personId": "e09e4b95-9fd1-4e0b-bdd3-229dfd188f89"
+      "userId": "c8fbb761-9178-4c02-81c4-973e8f09651c",
+      "personId": "40a17e56-07dd-4e4f-b6b9-4e937ec41699"
     },
     {
       "role": "analyst",
       "email": "analyst@raptor.local",
       "password": "raptor_local_dev_only",
       "name": "Raptor Analyst",
-      "userId": "ff4a0cf7-cd40-4a12-8f50-151dcc331c15",
-      "personId": "8a11ef60-03fe-40ec-bddb-a58c4d7c526b"
+      "userId": "b775fc35-4082-47e1-9687-29ae92dfed30",
+      "personId": "afe8cbce-7a0d-4420-bc63-19f02cf04c6b"
     },
     {
       "role": "coach",
       "email": "coach@raptor.local",
       "password": "raptor_local_dev_only",
       "name": "Raptor Coach",
-      "userId": "784726e6-b45c-4898-9695-cd83cdd9c947",
-      "personId": "b6e1b1e7-eccb-41d7-ad4b-f9540981db7f"
+      "userId": "4493d2c8-1930-4d8e-927b-934ef1093f3b",
+      "personId": "09f02636-16fd-44a1-afcb-7119e400e007"
     },
     {
       "role": "player",
       "email": "player@raptor.local",
       "password": "raptor_local_dev_only",
       "name": "Raptor Player",
-      "userId": "cbe9002e-fa27-4e36-8393-c79188b7a693",
-      "personId": "b6741a99-1bb5-4dee-8aaa-e56995dc06b1"
+      "userId": "e4dc78d6-9830-4297-bf8a-1fbbef2793ac",
+      "personId": "507df750-ec16-4c86-bb25-b05d60d72ef8"
     },
     {
       "role": "pending",
       "email": "pending@raptor.local",
       "password": "raptor_local_dev_only",
       "name": "Raptor Pending",
-      "userId": "a9b720d5-cf19-450c-bd5e-6db4411416b4",
-      "personId": "3960732c-c70b-4253-8579-ccefdfff35ad"
+      "userId": "ca761785-3317-447e-b876-d0c8c24a3f25",
+      "personId": "50dc10a6-5ada-47fe-ab65-cc9e9bf9c6a1"
     }
   ]
 }

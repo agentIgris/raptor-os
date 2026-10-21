@@ -8,7 +8,9 @@
 //      it is a deployment-time SQL asset, NOT a numbered db migration
 //   4. Applies packages/cms/provision.sql, sets the cms_app local password
 //   5. Runs the CMS migrations (cms_app)
-//   6. Applies scripts/preview-seed.sql (tenant root + preview data)
+//   6. Applies scripts/preview-seed.sql (tenant root + preview domain data)
+//   7. Applies scripts/preview-seed-cms.sql (preview CONTENT: news, partners,
+//      recruitment, site settings, socials, CMS operators)
 //
 // Connection: the local SUPERUSER is addressed through the standard PG*
 // environment variables, defaulting to postgres/postgres on loopback. The
@@ -198,13 +200,13 @@ function run(command, args, env) {
 console.log("Raptor OS — local setup");
 console.log(`Postgres ${host}:${port} as ${user}`);
 
-step("1/6 bootstrap (databases, roles) — packages/db/scripts/local-bootstrap.sql");
+step("1/7 bootstrap (databases, roles) — packages/db/scripts/local-bootstrap.sql");
 await withAdmin("postgres", (client) =>
   applyFile(client, "packages/db/scripts/local-bootstrap.sql"),
 );
 
 const migrationUrl = `postgresql://raptor_migrator:${LOCAL_PASSWORD}@${host}:${port}/${APP_DB}`;
-step("2/6 domain migrations (raptor_migrator)");
+step("2/7 domain migrations (raptor_migrator)");
 run("pnpm", ["--filter", "@raptor/db", "db:migrate"], { DATABASE_MIGRATION_URL: migrationUrl });
 
 // Better Auth's persistence is a hand-written, deployment-time SQL asset
@@ -214,7 +216,7 @@ run("pnpm", ["--filter", "@raptor/db", "db:migrate"], { DATABASE_MIGRATION_URL: 
 // in BEGIN/COMMIT and is fully IF NOT EXISTS / OR REPLACE idempotent, so
 // executing it verbatim on one connection converges. Per its header it must
 // run AS raptor_migrator — never as raptor_app.
-step("3/6 Better Auth schema — packages/auth/src/schema.sql (as raptor_migrator)");
+step("3/7 Better Auth schema — packages/auth/src/schema.sql (as raptor_migrator)");
 {
   const client = new Client(migrationUrl + "?connectionTimeoutMillis=5000");
   try {
@@ -236,13 +238,13 @@ step("3/6 Better Auth schema — packages/auth/src/schema.sql (as raptor_migrato
   }
 }
 
-step("4/6 CMS role provisioning — packages/cms/provision.sql");
+step("4/7 CMS role provisioning — packages/cms/provision.sql");
 await withAdmin(APP_DB, async (client) => {
   await applyFile(client, "packages/cms/provision.sql");
   await client.query(`ALTER ROLE cms_app WITH LOGIN PASSWORD '${LOCAL_PASSWORD}'`);
 });
 
-step("5/6 CMS migrations (cms_app)");
+step("5/7 CMS migrations (cms_app)");
 const cmsEnv = {
   PAYLOAD_DATABASE_URI: `postgresql://cms_app:${LOCAL_PASSWORD}@${host}:${port}/${APP_DB}`,
 };
@@ -252,7 +254,7 @@ if (!process.env.PAYLOAD_SECRET) {
 }
 run("pnpm", ["--filter", "./packages/cms", "cms:migrate"], cmsEnv);
 
-step("6/6 preview seed — scripts/preview-seed.sql");
+step("6/7 preview seed — scripts/preview-seed.sql");
 const counts = await withAdmin(APP_DB, async (client) => {
   await applyFile(client, "scripts/preview-seed.sql", { tolerate: new Set() });
   const result = await client.query(
@@ -267,6 +269,31 @@ const counts = await withAdmin(APP_DB, async (client) => {
 console.log(
   `   games=${counts.games} teams=${counts.teams} preview_people=${counts.preview_people} ` +
     `competitions=${counts.competitions} results=${counts.results}`,
+);
+
+// The preview CONTENT of the fan site - the news, the partner strip, the
+// recruitment panel, the site settings, the social links and the CMS
+// operators - lives in its own seed.
+//
+// It used to live ONLY inside the committed database snapshot, which meant a
+// fresh clone that ran this script got the domain preview data and no news
+// at all: the content was in a binary blob, unreviewable and unreproducible.
+// The snapshot is still the portable copy; this is the thing that makes it.
+step("7/7 CMS preview content — scripts/preview-seed-cms.sql");
+const content = await withAdmin(APP_DB, async (client) => {
+  await applyFile(client, "scripts/preview-seed-cms.sql", { tolerate: new Set() });
+  const result = await client.query(
+    `SELECT (SELECT count(*) FROM public.cms_news) AS news,
+            (SELECT count(*) FROM public.cms_partners) AS partners,
+            (SELECT count(*) FROM public.cms_recruitment) AS recruitment,
+            (SELECT count(*) FROM public.cms_site_settings) AS site_settings,
+            (SELECT count(*) FROM public.cms_operators) AS operators`,
+  );
+  return result.rows[0];
+});
+console.log(
+  `   news=${content.news} partners=${content.partners} recruitment=${content.recruitment} ` +
+    `site_settings=${content.site_settings} operators=${content.operators}`,
 );
 
 console.log(`

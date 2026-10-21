@@ -53,12 +53,21 @@ whole of this in order:
    `raptor_app`, `raptor_migrator` and `cms_app`).
 4. **Applies the migrations** — the domain ledger, the Better Auth identity
    schema, the CMS provisioning and the Payload migrations.
-5. **Writes `.env.local`** with freshly generated `BETTER_AUTH_SECRET` and
+5. **Seeds the preview data** — `scripts/preview-seed.sql` for the domain
+   (teams, games, players, competitions, results) and
+   `scripts/preview-seed-cms.sql` for the CONTENT (the news, the partner
+   strip, the recruitment panel, the site settings, the social links and the
+   CMS operators). Both are committed SQL, so the demo content is reviewable
+   in a diff and reproducible on any machine, not only inside the database
+   snapshot.
+6. **Writes `.env.local`** with freshly generated `BETTER_AUTH_SECRET` and
    `PAYLOAD_SECRET`, if the file does not exist. An existing `.env.local` is
    never overwritten.
-6. **Seeds the preview tenant** and the seven role accounts.
-7. **Prints the result** — the URLs, the accounts, and the exact command to
+7. **Seeds the seven role accounts**, if the application is already running
+   (the seed signs in over HTTP, so it needs a live server).
+8. **Prints the result** — the URLs, the accounts, and the exact command to
    start the stack.
+
 
 It is safe to run again at any time. It is also safe to run as an AI agent:
 it takes no interactive input, it writes only inside the repository and the
@@ -95,7 +104,11 @@ Idempotent — safe to run again any time. It:
 - applies `packages/cms/provision.sql` (row-level security, grants) and runs
   the Payload migrations;
 - seeds a preview tenant (games, teams, competitions, people, results) and
-  prints row counts as a health check.
+  prints row counts as a health check;
+- seeds the preview CONTENT — three news stories, five partners, the
+  recruitment panel, the site settings, the social links and the two CMS
+  operator accounts — from `scripts/preview-seed-cms.sql`, so a clone has the
+  same fan site the snapshot has.
 
 It also prints fresh random values for `BETTER_AUTH_SECRET` and
 `PAYLOAD_SECRET`. Write them down — the next step needs them.
@@ -188,6 +201,34 @@ All seven use the local-only password `raptor_local_dev_only`.
 > unless it carries the enrolment flag, and the seed grants that flag — but
 > no challenge is ever issued. See [SECURITY.md](./SECURITY.md#demo-deviations)
 > and [DEMO.md](./DEMO.md).
+
+### The demo content, and the art that goes with it
+
+The fan site is not empty on a fresh clone, and none of it needs a network
+call or a media server:
+
+| What | Where it comes from |
+| --- | --- |
+| Teams, games, players, competitions, results | `scripts/preview-seed.sql` |
+| News, partners, recruitment, site settings, social links, CMS operators | `scripts/preview-seed-cms.sql` |
+| Hero, division art, portraits, news art, partner logos, marks | `apps/web/public/placeholders/` (20 files, in git) |
+| The whole database, byte for byte | `scripts/db-local-snapshot/raptor_os.pgdump` |
+
+The portraits are resolved **by handle**: the roster's handle is
+`person_profile.display_name`, and the site asks for
+`/placeholders/player-<handle>.png`, falling back to a generic portrait when
+the file is absent. The seed therefore carries the five handles the committed
+art is named for — `RExANNA`, `RExFURRYJOD`, `RExIGRIS`, `RExSANKU`,
+`RExZEROIGL` — and
+`apps/web/src/__tests__/preview-content.test.ts` fails if the two ever drift
+apart again. They did drift once, and the symptom was "the images are
+missing" on a second machine with nothing to indicate a cause.
+
+There is **no uploaded media** in the demo: every image column in the content
+seed is NULL, and the art is the committed placeholder set. A file uploaded
+through the CMS admin lands under `packages/cms/.media/` (or S3 in a
+deployed environment) and is not part of the repository.
+
 
 ---
 

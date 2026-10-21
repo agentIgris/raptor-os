@@ -153,9 +153,22 @@ fails on the build-gate and console-log versions of them.
 | A business rule | `packages/core/src/<module>/` with its test beside it |
 | A query | `packages/db/src/`, behind the existing Drizzle client |
 | A schema change | a NEW file in `packages/db/migrations/`, numbered next |
+| Preview data | `scripts/preview-seed.sql` — never only inside the database snapshot |
+| Preview content (news, partners, site settings) | `scripts/preview-seed-cms.sql` — same rule, same reason |
 | A page or component | `apps/web/src/app/(site)` or `(app)`, using `@raptor/ui` primitives |
 | A publishable content type | `packages/cms/src/`, with a migration for the `cms_*` table |
 | An auth behaviour | `packages/auth/src/config.ts` and its test — and the reason goes in the header |
+
+### If you touch the preview data or the art
+
+The roster resolves a portrait **by handle**: the handle is
+`person_profile.display_name`, and the site asks for
+`/placeholders/player-<handle>.png`, falling back to a generic portrait when
+the file is absent. A mismatch is silent — it is a fallback, not an error.
+
+`apps/web/src/__tests__/preview-content.test.ts` checks the two against each
+other, and against the content seed. If you rename a handle, rename the art
+(or the seed) in the same change and run that test.
 
 ---
 

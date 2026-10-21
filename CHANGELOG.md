@@ -19,7 +19,19 @@ surfaces may still change shape between releases.
 - **`pnpm bootstrap`** — one idempotent, non-interactive command that
   prepares a machine: prerequisites, databases and roles, the domain
   migrations, the identity schema, the CMS provisioning, a generated
-  `.env.local`, the preview tenant and the seven role accounts.
+  `.env.local`, the preview data, the preview CONTENT and the seven role
+  accounts.
+- **`scripts/preview-seed-cms.sql`** — the preview content as a committed,
+  idempotent seed: three news stories, five partners, the recruitment panel,
+  the site settings, the social links and the two CMS operator accounts. It
+  used to exist only inside the database snapshot, which meant a clone that
+  ran the documented setup had the domain preview data and **no news, no
+  partners and no site settings at all** — the content was in a binary blob,
+  unreviewable, unreproducible and invisible to every test.
+- **`apps/web/src/__tests__/preview-content.test.ts`** — the check that the
+  seeded roster and the committed art agree, and that the preview content is
+  a seed rather than a snapshot. Verified by mutation: renaming the handles
+  back to the old set fails two of the five cases.
 - **Pull request, issue and conduct templates**, and a dependabot
   configuration.
 
@@ -57,6 +69,18 @@ surfaces may still change shape between releases.
   back as a number from every driver. PGlite returns `int8` as a number, so
   the test database could not reproduce it — the column type is now pinned in
   the schema test and the header contract is asserted in the rate-limit test.
+- **The CI build-gate check fired on correct code.** It grepped for the
+  property NAMES, so it matched a config that deliberately sets
+  `ignoreBuildErrors: false`. It now checks that no gate is set to `true`,
+  which is the question the step is named for.
+- **The roster showed a generic portrait for every player.** Portraits are
+  resolved by handle — `person_profile.display_name` →
+  `/placeholders/player-<handle>.png` — and the committed art is named for
+  five `REx*` handles while the seed carried five other names, so the art was
+  unreachable and every player on the site wore the fallback. The seed now
+  carries the handles the art is for. The portraits are illustrated brand art
+  in the Raptor palette, not photographs, so this is a naming decision and
+  not an attribution one.
 
 ### Removed
 - The `twoFactor` plugin, its challenge-cookie and account-lockout
