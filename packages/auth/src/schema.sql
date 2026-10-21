@@ -686,8 +686,25 @@ SECURITY DEFINER
 SET search_path = ''
 AS $$
 BEGIN
+  -- THE CASTS ARE LOAD-BEARING.
+  --
+  -- `organization.display_name` is `varchar(200)` and `slug` is `varchar(64)`,
+  -- while this function declares `display_name text, slug text`. A
+  -- `LANGUAGE sql` function coerces its result to the declared types for you;
+  -- a `plpgsql` one does NOT: `RETURN QUERY` checks the shape of what the
+  -- query returns against the declared return types and raises
+  --
+  --     structure of query does not match function result type
+  --
+  -- at CALL time, with a message that names the column and nothing else. The
+  -- failure is invisible until something calls the function, and the caller
+  -- here is the sign-in flow: the session never gets an organisation bound, and
+  -- every workspace page degrades to "unavailable" with nothing in the log.
+  --
+  -- So the casts are explicit. Measured: without them the function throws on
+  -- every call; with them it returns the row.
   RETURN QUERY
-    SELECT m."org_id", o.display_name, o.slug
+    SELECT m."org_id", o.display_name::text, o.slug::text
       FROM public."auth_session" s
       JOIN public.person_credential_link l
         ON l.user_id = s."userId"

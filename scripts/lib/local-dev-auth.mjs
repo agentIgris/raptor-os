@@ -126,15 +126,38 @@ export function baseUrl() {
  * installed, so no code is ever sent to them — but the server still declares
  * their budgets, and a mirror that disagreed with the server would be worse than
  * one that is slightly wider than it needs to be.
+ *
+ * The sign-in budget is read from the SAME variable the server reads
+ * (`AUTH_RATE_LIMIT_SIGNIN_MAX`), because the two have to agree: a script that
+ * paced itself to 5 while the server allowed 30 would sit waiting for a window
+ * that would never open, and one that paced itself to 30 while the server
+ * allowed 5 would be refused. The default here is the development default,
+ * 30 per minute, matching `packages/auth`'s own default outside production.
+ */
+const signInBudget = () => {
+  const raw = process.env["AUTH_RATE_LIMIT_SIGNIN_MAX"];
+  const parsed = raw === undefined || raw.trim() === "" ? 30 : Number(raw.trim());
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : 30;
+};
+
+/**
+ * The budgets, read at call time so that `applyEnvFile()` has already run.
  */
 export const RATE_RULES = {
   "/sign-up/email": { window: 10, max: 3 },
-  "/sign-in/email": { window: 60, max: 5 },
   "/two-factor/verify-totp": { window: 60, max: 5 },
   "/two-factor/verify-otp": { window: 60, max: 5 },
   "/two-factor/verify-backup-code": { window: 60, max: 5 },
 };
 const DEFAULT_RULE = { window: 60, max: 100 };
+
+/** The budget for one path, resolved now. */
+function ruleFor(routePath) {
+  if (routePath === "/sign-in/email" || routePath === "/sign-in/username") {
+    return { window: 60, max: signInBudget() };
+  }
+  return RATE_RULES[routePath] ?? DEFAULT_RULE;
+}
 
 /** Per-path bookkeeping so a script obeys the same budgets the server does. */
 const budgets = new Map();
@@ -148,7 +171,7 @@ const budgets = new Map();
  * 429 — the 429 handler in `call` is the backstop, not the plan.
  */
 export async function pace(routePath) {
-  const rule = RATE_RULES[routePath] ?? DEFAULT_RULE;
+  const rule = ruleFor(routePath);
   const state = budgets.get(routePath) ?? { count: 0, lastRequest: 0 };
   const now = Date.now();
 

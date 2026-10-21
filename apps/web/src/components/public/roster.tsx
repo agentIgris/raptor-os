@@ -65,6 +65,19 @@ function TeamPlayers({ players }: { players: PublicTeam["players"] }): React.JSX
  * Featured team plus roster grid. Handles come only from `public`-visibility
  * profiles (enforced in the query); portraits are placeholders until approved
  * player photos land in the manifest.
+ *
+ * EVERY TEAM GETS ITS PLAYERS' PORTRAITS, not only the featured one. The
+ * featured card used to be the only place a player was rendered as an image,
+ * and every other team was a line of handles joined by dots — so a roster of
+ * four players with four committed portraits showed none of them, and the page
+ * read as a list of names rather than a squad. Measured against the seeded
+ * data: the featured card (the Academy, one player) showed a portrait, and the
+ * Main team (four players) showed text.
+ *
+ * The featured card is also the first team THAT HAS PLAYERS, not the first team
+ * by name. The two used to disagree: the Academy sorts first, and the squad
+ * that carries the division and the portraits sorted second — so the headline
+ * card showed the empty team and the real squad was a line of handles.
  */
 export function Roster({ data }: { data: readonly PublicTeam[] | null }): React.JSX.Element {
   if (data === null) {
@@ -74,7 +87,7 @@ export function Roster({ data }: { data: readonly PublicTeam[] | null }): React.
       </Shell>
     );
   }
-  const featured = data[0];
+  const featured = data.find((team) => team.players.length > 0) ?? data[0];
   if (featured === undefined) {
     return (
       <Shell>
@@ -85,7 +98,7 @@ export function Roster({ data }: { data: readonly PublicTeam[] | null }): React.
       </Shell>
     );
   }
-  const rest = data.slice(1);
+  const rest = data.filter((team) => team.slug !== featured.slug);
   return (
     <Shell>
       <div className="mt-6 flex flex-col gap-8">
@@ -110,7 +123,7 @@ export function Roster({ data }: { data: readonly PublicTeam[] | null }): React.
           <TeamPlayers players={featured.players} />
         </article>
         {rest.length > 0 ? (
-          <ul className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <ul className="flex flex-col gap-4">
             {rest.map((team, index) => (
               <li
                 key={team.slug}
@@ -121,11 +134,13 @@ export function Roster({ data }: { data: readonly PublicTeam[] | null }): React.
                   {team.divisionName === null ? "" : ` · ${team.divisionName}`}
                 </p>
                 <p className="mt-1 text-[length:var(--text-md)] font-semibold text-[var(--dc-ink)]">{team.name}</p>
-                <p className="mt-1 text-[length:var(--text-sm)] text-[var(--dc-ink-dim)]">
-                  {team.players.length === 0
-                    ? "Lineup not published."
-                    : team.players.map((player) => player.handle).join(" · ")}
-                </p>
+                {team.players.length === 0 ? (
+                  <p className="mt-1 text-[length:var(--text-sm)] text-[var(--dc-ink-dim)]">Lineup not published.</p>
+                ) : (
+                  <div className="mt-3">
+                    <TeamPlayers players={team.players} />
+                  </div>
+                )}
               </li>
             ))}
           </ul>

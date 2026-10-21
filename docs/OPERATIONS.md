@@ -40,6 +40,7 @@ ones that decide whether the system starts at all:
 | `EMAIL_FROM` | with Resend | the sending address |
 | `AUTH_TRUSTED_IP_HEADERS` | behind an edge | **only** a header your edge overwrites |
 | `AUTH_TRUSTED_PROXIES` | with the above | the CIDR ranges of that edge |
+| `AUTH_RATE_LIMIT_SIGNIN_MAX` | when one address serves many people | sign-in attempts per address per minute. Empty means 5 in production and 30 elsewhere |
 | `PUBLIC_ORG_ID` / `PUBLIC_ORG_SLUG` | yes | which single tenant the public site renders |
 | `S3_BUCKET`, `S3_REGION`, `S3_ENDPOINT`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | optional | all five, or none — with none set, media lands on local disk |
 | `STORAGE_ROOT` | optional | where local media lands (`.data/storage`) |

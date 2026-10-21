@@ -26,8 +26,14 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
-import { RATE_LIMITS } from "./config.js";
-import { TEST_PASSWORD, createAuthFixture, truncateAuthTables, type AuthTestFixture } from "./test-helpers.js";
+import { ACCOUNT_SIGNIN_MAX_FAILURES, RATE_LIMITS } from "./config.js";
+import {
+  TEST_AUTH_ENV,
+  TEST_PASSWORD,
+  createAuthFixture,
+  truncateAuthTables,
+  type AuthTestFixture,
+} from "./test-helpers.js";
 
 let fixture: AuthTestFixture;
 
@@ -72,13 +78,25 @@ async function attemptSignIn(email: string): Promise<number> {
   return response.status;
 }
 
-/** Attempt a sign-in and return the whole response. */
-async function attemptSignInResponse(email: string): Promise<Response> {
+/**
+ * Attempt a sign-in and return the whole response.
+ *
+ * The password defaults to a WRONG one, which is what the credential-guessing
+ * tests want: a wrong password is a credential failure, and the account
+ * lockout counts those. A caller that wants the PER-ADDRESS limiter rather
+ * than the account lockout has to pass the right password — a successful
+ * sign-in is still a request the limiter counts, but it does not touch the
+ * account's failure counter.
+ */
+async function attemptSignInResponse(
+  email: string,
+  password: string = "deliberately-wrong-password-value",
+): Promise<Response> {
   return fixture.auth.handler(
     new Request("http://localhost:3000/api/auth/sign-in/email", {
       method: "POST",
       headers: { "content-type": "application/json", origin: "http://localhost:3000" },
-      body: JSON.stringify({ email, password: "deliberately-wrong-password-value" }),
+      body: JSON.stringify({ email, password }),
     }),
   );
 }
@@ -129,11 +147,17 @@ describe("rate limiting on sign-in", () => {
     // pinned separately in `schema.test.ts`, which is the assertion that would
     // fail if someone put the `bigint` back.
     await createUser("retry-after@example.invalid");
-    const limit = RATE_LIMITS.signIn.max;
+    // The RESOLVED budget, not the default: the default is the strict
+    // production number, and this deployment's budget is the environment's.
+    const limit = TEST_AUTH_ENV.signInRateLimitMax;
 
     let refusal: Response | undefined;
     for (let attempt = 0; attempt <= limit; attempt += 1) {
-      const response = await attemptSignInResponse("retry-after@example.invalid");
+      // The RIGHT password, so the ACCOUNT lockout stays out of it: this test
+      // is about the per-address limiter's refusal, and the account counter
+      // would fire first and answer with a 429 that carries no Retry-After —
+      // two different 429s, and the wrong one for this assertion.
+      const response = await attemptSignInResponse("retry-after@example.invalid", TEST_PASSWORD);
       if (response.status === 429) {
         refusal = response;
         break;
@@ -226,6 +250,29 @@ describe("rate limiting on sign-in", () => {
     // available, so it gets the tighter budget.
     expect(RATE_LIMITS.signIn.max).toBeLessThan(RATE_LIMITS.global.max);
     expect(RATE_LIMITS.twoFactorVerify.max).toBeLessThan(RATE_LIMITS.global.max);
+  });
+
+  it("uses the environment's sign-in budget on the sign-in paths", () => {
+    // The rule is per ADDRESS, and a development machine or a demo has one.
+    // The budget therefore follows the environment: strict in production,
+    // workable in development, and whatever the operator sets when they set it.
+    //
+    // The assertion is on the RESOLVED rule, not on the default: a config
+    // that kept the strict number while the environment asked for another
+    // would be a config that ignores the operator.
+    const rules = fixture.auth.options.rateLimit?.customRules ?? {};
+
+    for (const path of ["/sign-in/email", "/sign-in/username", "/sign-in/phone-number"]) {
+      const rule = rules[path];
+      // A rule may be `false`, an object, or a function; only the object form
+      // carries a budget, and this deployment declares the object form.
+      const max = typeof rule === "object" && rule !== null ? rule.max : undefined;
+      expect(max, `${path} must use the resolved budget`).toBe(TEST_AUTH_ENV.signInRateLimitMax);
+    }
+
+    // And the per-ACCOUNT budget — the one that actually bounds guessing — is
+    // untouched by any of this.
+    expect(ACCOUNT_SIGNIN_MAX_FAILURES).toBe(5);
   });
 });
 

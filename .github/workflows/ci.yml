@@ -119,6 +119,23 @@ jobs:
       - name: Assert every relative documentation link resolves
         run: node scripts/check-doc-links.mjs
 
+      # The Payload admin's component import map is GENERATED and committed.
+      # A stale one leaves the admin's collection cards unresolved — they
+      # render as large empty icons, and nothing else fails — so the map is
+      # regenerated here and compared against what is committed.
+      #
+      # The generator only WRITES when an entry is missing ("No new imports
+      # found, skipping writing"), so this catches the direction that breaks
+      # the admin: a committed map that is missing a component. Extra entries
+      # are harmless — they point at components that still exist.
+      - name: Assert the Payload import map is the generated one
+        run: |
+          pnpm --filter @raptor/cms cms:generate-importmap
+          if ! git diff --exit-code -- "apps/web/src/app/(payload)/importMap.js"; then
+            echo "::error::the Payload import map is stale — run pnpm --filter @raptor/cms cms:generate-importmap and commit the result"
+            exit 1
+          fi
+
   build-gate:
     name: Build gates enabled
     runs-on: ubuntu-latest

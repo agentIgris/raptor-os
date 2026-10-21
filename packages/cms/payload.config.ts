@@ -17,6 +17,9 @@ import { SiteSettings } from "./src/globals/site-settings.js";
 const filename = fileURLToPath(import.meta.url);
 const dirname = path.dirname(filename);
 const srcDir = path.resolve(dirname, "src");
+// src -> cms -> packages -> the repository root.
+const repoRoot = path.resolve(srcDir, "..", "..", "..");
+const importMapFile = path.resolve(repoRoot, "apps", "web", "src", "app", "(payload)", "importMap.js");
 
 /**
  * Payload CMS configuration for Raptor OS.
@@ -49,6 +52,16 @@ const srcDir = path.resolve(dirname, "src");
  * config on Vercel (proven in production logs). Locally and in CI the package
  * is installed, so crops work there; where it is absent (Vercel lambda),
  * uploads store originals and the admin warns instead of crashing.
+ *
+ * THE APP NEEDS IT, NOT JUST THIS PACKAGE. The import above is resolved by
+ * the process that EVALUATES this config, and in a deployment that is the web
+ * app — it is what mounts Payload. `packages/cms` having sharp is therefore
+ * not enough: without sharp in `apps/web`'s own dependencies the bundler
+ * cannot resolve the specifier, the dynamic import throws, the catch swallows
+ * it, and Payload runs with image resizing switched off while the admin
+ * console shows a warning that reads like a misconfiguration. Measured: the
+ * admin rendered its media as a large placeholder icon with exactly that
+ * warning in the log. `apps/web` therefore depends on the same pinned version.
  */
 const sharpModule = await import(/* webpackIgnore: true */ "sharp").catch(() => null);
 const sharp = sharpModule === null ? undefined : (sharpModule.default ?? sharpModule);
@@ -81,6 +94,23 @@ export default buildConfig({
     user: Operators.slug,
     importMap: {
       baseDir: srcDir,
+      // The map is GENERATED, and this is where the generator writes it.
+      //
+      // Payload's CLI looks for the import map at `<rootDir>/src/app/(payload)<adminRoute>/`
+      // and, because the admin route here is `/cms-admin`, that path does not
+      // exist — the admin lives at `src/app/(payload)/[[...segments]]`. The
+      // explicit `importMapFile` is the supported way to say where it is, and
+      // it is also where the admin layout reads it from
+      // (`apps/web/src/app/(payload)/layout.tsx`).
+      //
+      // This matters because the map is not optional decoration: it maps
+      // `@payloadcms/next/rsc#CollectionCards` — the component that draws a
+      // collection's card in the admin dashboard — to its implementation. An
+      // empty map leaves the key unresolved, the admin logs "PayloadComponent
+      // not found in importMap" for every card, and each collection renders as
+      // a large empty icon. Measured: that is exactly what the admin looked
+      // like before this file was generated.
+      importMapFile,
     },
     meta: {
       titleSuffix: "— Raptor CMS",

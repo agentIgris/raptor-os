@@ -27,7 +27,10 @@ import { describe, expect, it } from "vitest";
 import {
   AuthEnvironmentError,
   DEFAULT_APP_DATABASE_URL,
+  DEVELOPMENT_SIGNIN_RATE_LIMIT_MAX,
   MIGRATION_URL_VARIABLE,
+  PRODUCTION_SIGNIN_RATE_LIMIT_MAX,
+  SIGNIN_RATE_LIMIT_MAX_VARIABLE,
   mfaRequiredError,
   migrationDatabaseUrl,
   readAuthEnv,
@@ -81,6 +84,33 @@ describe("readAuthEnv", () => {
   it("lists every missing variable at once, not one per restart", () => {
     // Reporting them one at a time turns a startup fix into three restarts.
     expect(() => readAuthEnv({})).toThrow(/BETTER_AUTH_SECRET.*BETTER_AUTH_URL/s);
+  });
+
+  it("keeps the sign-in budget strict in production and workable in development", () => {
+    // The budget is per ADDRESS, and a developer or a demo has exactly one.
+    // Signing in as owner, then admin, then coach to show a colleague is three
+    // sign-ins in a row from 127.0.0.1 — and the fourth was refused with a
+    // 429, which read as "sign-in does not work".
+    const production = readAuthEnv({ ...baseEnv(), NODE_ENV: "production" });
+    expect(production.signInRateLimitMax).toBe(PRODUCTION_SIGNIN_RATE_LIMIT_MAX);
+
+    const development = readAuthEnv({ ...baseEnv() });
+    expect(development.signInRateLimitMax).toBe(DEVELOPMENT_SIGNIN_RATE_LIMIT_MAX);
+  });
+
+  it("takes an explicit sign-in budget over the environment default", () => {
+    const env = readAuthEnv({ ...baseEnv(), [SIGNIN_RATE_LIMIT_MAX_VARIABLE]: "12" });
+    expect(env.signInRateLimitMax).toBe(12);
+  });
+
+  it("refuses a sign-in budget that is not a positive whole number", () => {
+    // A typo must not silently leave the default in place, and `0` must not
+    // mean "unlimited" — it would mean the opposite.
+    for (const value of ["0", "-1", "3.5", "many"]) {
+      expect(() => readAuthEnv({ ...baseEnv(), [SIGNIN_RATE_LIMIT_MAX_VARIABLE]: value })).toThrow(
+        /AUTH_RATE_LIMIT_SIGNIN_MAX/,
+      );
+    }
   });
 
   it("falls back to the local app-role connection string", () => {

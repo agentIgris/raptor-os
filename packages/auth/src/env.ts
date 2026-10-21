@@ -317,6 +317,24 @@ export interface AuthEnv {
    */
   readonly trustedIpHeaders: readonly string[];
   /**
+   * How many sign-in attempts one client address may make per minute.
+   *
+   * 5 IN PRODUCTION, and that is the number the audit's measurement points at:
+   * below any human's typing rate, and far below what a credential-stuffing
+   * run needs. The per-ACCOUNT budget (5 failures, then a 15-minute lock) is
+   * the one that actually bounds guessing, and it is unaffected by this.
+   *
+   * 30 OUTSIDE PRODUCTION, because the budget is per ADDRESS and a developer
+   * or a demo has exactly one: signing in as owner, then admin, then coach to
+   * show a colleague is three sign-ins in a row from 127.0.0.1, and the fourth
+   * was refused with a 429. Measured, and it read as "sign-in does not work"
+   * rather than as a rate limit. A demo has to be able to show every role.
+   *
+   * {@link SIGNIN_RATE_LIMIT_MAX_VARIABLE} overrides both, for a deployment
+   * that shares one address across a whole office.
+   */
+  readonly signInRateLimitMax: number;
+  /**
    * Resend API key for authentication mail (verification + password reset).
    *
    * `undefined` when unset, in which case mail sends fail loudly at call
@@ -343,6 +361,26 @@ export interface AuthEnv {
 
 /** Names the request header(s) carrying a trustworthy client IP. See {@link AuthEnv.trustedIpHeaders}. */
 export const TRUSTED_IP_HEADERS_VARIABLE = "AUTH_TRUSTED_IP_HEADERS";
+
+/**
+ * Overrides the per-address sign-in budget.
+ *
+ * See {@link AuthEnv.signInRateLimitMax} for what the number means and why it
+ * differs by environment. The value is a plain count of attempts per minute.
+ */
+export const SIGNIN_RATE_LIMIT_MAX_VARIABLE = "AUTH_RATE_LIMIT_SIGNIN_MAX";
+
+/** The production budget: 5 sign-in attempts per address per minute. */
+export const PRODUCTION_SIGNIN_RATE_LIMIT_MAX = 5;
+
+/**
+ * The budget outside production: 30 attempts per address per minute.
+ *
+ * A development machine or a demo has ONE address, and a person signing in as
+ * several roles to show a colleague would otherwise be refused. The control
+ * that bounds guessing — the per-account lockout — does not move.
+ */
+export const DEVELOPMENT_SIGNIN_RATE_LIMIT_MAX = 30;
 
 /** Names the CIDR ranges of the proxies that set that header. See {@link AuthEnv.trustedProxies}. */
 export const TRUSTED_PROXIES_VARIABLE = "AUTH_TRUSTED_PROXIES";
@@ -507,6 +545,8 @@ export function readAuthEnv(env: Readonly<Record<string, string | undefined>>): 
   const nodeEnv: AuthEnv["nodeEnv"] =
     rawNodeEnv === "production" ? "production" : rawNodeEnv === "test" ? "test" : "development";
 
+  const signInRateLimitMax = readSignInRateLimitMax(env, nodeEnv);
+
   return {
     secret,
     baseUrl: requiredEntry("BETTER_AUTH_URL"),
@@ -518,7 +558,35 @@ export function readAuthEnv(env: Readonly<Record<string, string | undefined>>): 
     emailFrom: optionalEntry("EMAIL_FROM") ?? DEFAULT_EMAIL_FROM,
     trustedIpHeaders: splitList(env[TRUSTED_IP_HEADERS_VARIABLE]),
     trustedProxies: splitList(env[TRUSTED_PROXIES_VARIABLE]),
+    signInRateLimitMax,
   };
+}
+
+/**
+ * The per-address sign-in budget: an explicit value, or the environment's
+ * default.
+ *
+ * A value that is not a positive integer is REFUSED rather than ignored: a
+ * typo in the variable would otherwise silently leave the strict default in
+ * place, and an operator who set `AUTH_RATE_LIMIT_SIGNIN_MAX=0` to mean
+ * "unlimited" would be given the opposite.
+ */
+function readSignInRateLimitMax(
+  env: Readonly<Record<string, string | undefined>>,
+  nodeEnv: AuthEnv["nodeEnv"],
+): number {
+  const raw = env[SIGNIN_RATE_LIMIT_MAX_VARIABLE];
+  if (raw === undefined || raw.trim() === "") {
+    return nodeEnv === "production" ? PRODUCTION_SIGNIN_RATE_LIMIT_MAX : DEVELOPMENT_SIGNIN_RATE_LIMIT_MAX;
+  }
+
+  const parsed = Number(raw.trim());
+  if (!Number.isInteger(parsed) || parsed < 1) {
+    throw new AuthEnvironmentError([
+      `${SIGNIN_RATE_LIMIT_MAX_VARIABLE} must be a positive whole number (got "${raw}")`,
+    ]);
+  }
+  return parsed;
 }
 
 /**

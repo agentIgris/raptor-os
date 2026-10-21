@@ -128,4 +128,17 @@ export default tseslint.config(
     files: ["packages/cms/src/migrations/**/*.ts"],
     rules: { "@typescript-eslint/no-unused-vars": "off" },
   },
+
+  // The Payload admin's component import map is GENERATED
+  // (`payload generate:importmap`), so it cannot be annotated, and the
+  // components it imports are typed by Payload rather than by this repository
+  // — the type-aware rules see error-typed values and report every assignment.
+  //
+  // The file is committed on purpose: an empty or stale map leaves the admin's
+  // collection cards unresolved and they render as large empty icons. The
+  // generator overwrites it, so a lint suppression inside it would not survive.
+  {
+    files: ["apps/web/src/app/(payload)/importMap.js"],
+    rules: { "@typescript-eslint/no-unsafe-assignment": "off" },
+  },
 );

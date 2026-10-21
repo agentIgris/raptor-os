@@ -148,6 +148,8 @@ verified**. The pull request template is in
 | `LANGUAGE sql` in a schema file | the function needs another package's tables to exist at CREATE time | use `plpgsql` |
 | `bigint` and node-postgres | `int8` comes back as a string and `+` concatenates | use `double precision` for arithmetic values |
 | A handle and its portrait drift apart | the roster silently shows the generic portrait | the seed and `apps/web/public/placeholders/` must agree; `preview-content.test.ts` checks it |
+| A `plpgsql` function returns a `varchar` where it declares `text` | "structure of query does not match function result type" at CALL time, swallowed by the caller | cast at the source: `name::text` |
+| The sign-in budget refuses the second role | the per-ADDRESS budget is per IP, and a dev machine has one | 30 per minute outside production; `AUTH_RATE_LIMIT_SIGNIN_MAX` overrides it |
 | Content only in the database snapshot | a clone that runs `pnpm bootstrap` has no news, no partners, no site settings | seed it in `scripts/preview-seed-cms.sql` |
 | `pnpm dev` without `dev:local` | every auth route answers 503 | use `pnpm dev:local` |
 | PowerShell mangles `\|\|` and quotes | a command works in bash and not here | write a temporary `.mjs` and run it with `node` |

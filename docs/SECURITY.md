@@ -117,9 +117,18 @@ Two budgets, deliberately separate:
 
 | Budget | Scope | Where |
 | --- | --- | --- |
-| Per-IP limiter | 5 sign-in attempts per 60 s per path | Better Auth's rate limiter, counters in Postgres |
+| Per-IP limiter | 5 sign-in attempts per 60 s per path in production, 30 outside it | Better Auth's rate limiter, counters in Postgres |
 | Per-account counter | 5 failed passwords → 15-minute lock | `packages/auth/src/account-lockout.ts`, keyed on a SHA-256 digest of the lower-cased address |
 | Per-IP forwarding headers | none by default | `advanced.ipAddress` reads no header unless the edge overwrites one |
+
+The per-IP budget is per ADDRESS, and a developer or a demo has exactly one:
+signing in as owner, then admin, then coach to show a colleague is three
+sign-ins in a row from 127.0.0.1, and the fourth was refused with a 429 that
+read as "sign-in does not work". The budget therefore follows the environment —
+**5 per minute in production, 30 outside it** — and `AUTH_RATE_LIMIT_SIGNIN_MAX`
+overrides both for a deployment that shares one address across an office. The
+per-ACCOUNT lockout, which is the control that actually bounds guessing, does
+not move.
 
 The per-IP budget alone is not a credential defence: with a unique
 `X-Forwarded-For` per request, 200 of 200 guesses against one named account

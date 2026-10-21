@@ -120,13 +120,40 @@ INSERT INTO public.person_profile (person_id, display_name, profile_visibility) 
   ('4908ae96-c0d1-4de6-827a-68fc0862b131', 'RExZEROIGL', 'public')
 ON CONFLICT (person_id) DO UPDATE SET display_name = EXCLUDED.display_name;
 
+-- THE LINEUP
+-- ---------
+-- One squad, in the division, with a captain. The Academy is left forming with
+-- no published lineup: it exists as a team, and it says so.
+--
+-- RExSANKU captains, and RExZEROIGL is in the squad rather than in the
+-- Academy. The Academy team has no division, so a player in it shows under
+-- "Unplaced division" and the featured card — the first team by name, which is
+-- the Academy — had no one in it while the team that has five portraits and a
+-- division was a line of handles. The squad and the art are now the same
+-- thing: five players, five committed portraits, one captain.
+-- The preview roster is owned by this file, so it is REPLACED rather than
+-- merged: the memberships below are the whole preview roster, and a row left
+-- behind by an earlier version of this seed (a player in a team that no longer
+-- fields them) would keep showing on the public site. The delete is scoped to
+-- the five preview people, so it can never touch a real membership.
+DELETE FROM public.team_membership
+ WHERE "org_id" = '0c295a27-1295-4dcf-9a0e-2f77a772f14d'
+   AND "person_id" IN (
+         'b44f16ba-1efb-4ac8-b2ee-96467a874885',
+         '25c9ce24-d98c-42b3-8fc8-e4377c79ca03',
+         '294f46af-4b43-4583-aa48-731c9f75c6f2',
+         '7ebd2393-f935-4d8f-9e96-92071f02a0c3',
+         '4908ae96-c0d1-4de6-827a-68fc0862b131'
+       );
+
 INSERT INTO public.team_membership (org_id, team_id, person_id, role_in_team, share_percent, valid_from, joined_at) VALUES
-  ('0c295a27-1295-4dcf-9a0e-2f77a772f14d', '444f49a2-3065-4fa4-8a5a-fd2a14e24fd5', 'b44f16ba-1efb-4ac8-b2ee-96467a874885', 'captain', 0, '2025-03-27T00:00:00Z', '2025-03-27T00:00:00Z'),
-  ('0c295a27-1295-4dcf-9a0e-2f77a772f14d', '444f49a2-3065-4fa4-8a5a-fd2a14e24fd5', '25c9ce24-d98c-42b3-8fc8-e4377c79ca03', 'player', 0, '2025-03-27T00:00:00Z', '2025-03-27T00:00:00Z'),
-  ('0c295a27-1295-4dcf-9a0e-2f77a772f14d', '444f49a2-3065-4fa4-8a5a-fd2a14e24fd5', '294f46af-4b43-4583-aa48-731c9f75c6f2', 'player', 0, '2025-07-21T00:00:00Z', '2025-07-21T00:00:00Z'),
+  ('0c295a27-1295-4dcf-9a0e-2f77a772f14d', '444f49a2-3065-4fa4-8a5a-fd2a14e24fd5', '294f46af-4b43-4583-aa48-731c9f75c6f2', 'captain', 0, '2025-03-27T00:00:00Z', '2025-03-27T00:00:00Z'),
+  ('0c295a27-1295-4dcf-9a0e-2f77a772f14d', '444f49a2-3065-4fa4-8a5a-fd2a14e24fd5', 'b44f16ba-1efb-4ac8-b2ee-96467a874885', 'player', 0, '2025-03-27T00:00:00Z', '2025-03-27T00:00:00Z'),
+  ('0c295a27-1295-4dcf-9a0e-2f77a772f14d', '444f49a2-3065-4fa4-8a5a-fd2a14e24fd5', '25c9ce24-d98c-42b3-8fc8-e4377c79ca03', 'player', 0, '2025-07-21T00:00:00Z', '2025-07-21T00:00:00Z'),
   ('0c295a27-1295-4dcf-9a0e-2f77a772f14d', '444f49a2-3065-4fa4-8a5a-fd2a14e24fd5', '7ebd2393-f935-4d8f-9e96-92071f02a0c3', 'player', 0, '2025-07-21T00:00:00Z', '2025-07-21T00:00:00Z'),
-  ('0c295a27-1295-4dcf-9a0e-2f77a772f14d', '1d2c3992-8eb2-40cd-833f-9c4fa75471b4', '4908ae96-c0d1-4de6-827a-68fc0862b131', 'player', 0, '2025-12-12T00:00:00Z', '2025-12-12T00:00:00Z')
-ON CONFLICT (org_id, team_id, person_id) WHERE valid_to IS NULL DO NOTHING;
+  ('0c295a27-1295-4dcf-9a0e-2f77a772f14d', '444f49a2-3065-4fa4-8a5a-fd2a14e24fd5', '4908ae96-c0d1-4de6-827a-68fc0862b131', 'player', 0, '2025-12-12T00:00:00Z', '2025-12-12T00:00:00Z')
+ON CONFLICT (org_id, team_id, person_id) WHERE valid_to IS NULL
+DO UPDATE SET role_in_team = EXCLUDED.role_in_team;
 
 -- Opponent lobby (structural; finals lobbies have no single opposing team) --
 INSERT INTO public.opponent (id, org_id, name, short_name, game_id)

@@ -55,6 +55,48 @@ surfaces may still change shape between releases.
   script no longer enrol or answer a challenge.
 
 ### Fixed
+- **The workspace was degraded on every page.** The session never got an
+  organisation bound, so teams, competitions, members, analytics and the
+  organisation profile all rendered "unavailable" — and nothing was logged,
+  because the callers swallow the failure by design.
+  `auth_active_orgs_for_token` is a `plpgsql` function whose signature declares
+  `display_name text, slug text` while its body returns `varchar(200)` and
+  `varchar(64)`. A `LANGUAGE sql` function coerces its result to the declared
+  types; a `plpgsql` one does not, and `RETURN QUERY` raises *structure of
+  query does not match function result type* at CALL time. The casts are now
+  explicit, and `packages/auth/src/org-binding.test.ts` CALLS both functions —
+  they had only ever been asserted about.
+- **The Analytics page was degraded** — the same defect in a different schema.
+  `analytics_top_teams` returned `team.name` (`varchar(160)`) where it declares
+  `team_name text`. Fixed by a new forward-only migration,
+  `packages/db/migrations/0017_analytics_return_types.sql`, and covered by
+  `packages/db/src/analytics.isolation.test.ts`, which calls the two analytics
+  functions for the first time.
+- **Signing in as several roles was refused with a 429.** The per-address
+  sign-in budget was 5 per minute, and a developer or a demo has ONE address:
+  owner, then admin, then coach to show a colleague is three sign-ins in a row.
+  The budget now follows the environment — **5 per minute in production, 30
+  outside it** — and `AUTH_RATE_LIMIT_SIGNIN_MAX` overrides both. The
+  per-ACCOUNT lockout, which is the control that actually bounds guessing, does
+  not move.
+- **The CMS admin rendered its collections as large empty icons.** The admin's
+  component import map was hand-written and EMPTY, so the key that draws a
+  collection card — `@payloadcms/next/rsc#CollectionCards` — was unresolved.
+  It is generated now (`payload generate:importmap`, committed), and the
+  Payload config points the generator at the file the app reads.
+- **The CMS could not resize images.** The Payload config imports `sharp`, but
+  the process that EVALUATES that config is the web app, and `apps/web` did not
+  depend on sharp — so the bundler could not resolve it, the dynamic import
+  threw, and the catch swallowed it. `apps/web` now depends on the same pinned
+  version as `packages/cms`.
+- **The roster showed a generic portrait for every player, and the featured
+  team had no players in it.** Portraits are resolved by handle, and the
+  committed art is named for the `REx*` handles; the seed now carries them.
+  Every team renders its players' portraits, not only the featured one, and
+  the featured card is the first team that HAS players.
+- **The roster had the wrong captain and the wrong squad.** RExSANKU captains
+  Raptor BGMI Main, and RExZEROIGL is in the squad — with the division — rather
+  than in the Academy, which has no division and no published lineup.
 - **`schema.sql` aborted its own transaction** when it was applied before the
   domain schema. `auth_active_orgs_for_token` was a `LANGUAGE sql` function,
   and a SQL-language function resolves the relations in its body when it is

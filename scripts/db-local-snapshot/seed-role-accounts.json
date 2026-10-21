@@ -6,7 +6,7 @@
       "email": "owner@raptor.local",
       "password": "raptor_local_dev_only",
       "name": "Raptor Owner",
-      "userId": "4f5091d7-d946-408d-9780-b20a79451bbb",
+      "userId": "cb2da91e-2594-47a0-ae6b-2b3ddf3edebf",
       "personId": "658b0e05-2797-4d4c-a91d-8bd9dc8e6606"
     },
     {
@@ -14,7 +14,7 @@
       "email": "admin@raptor.local",
       "password": "raptor_local_dev_only",
       "name": "Raptor Admin",
-      "userId": "91f8d892-5030-400e-89de-b5eb307acfc8",
+      "userId": "bc763d75-ea69-4fbd-8d65-95cdd1c0e5c4",
       "personId": "965a9b17-ce96-4db5-816f-d703d2b436b3"
     },
     {
@@ -22,7 +22,7 @@
       "email": "manager@raptor.local",
       "password": "raptor_local_dev_only",
       "name": "Raptor Manager",
-      "userId": "c8fbb761-9178-4c02-81c4-973e8f09651c",
+      "userId": "cf2b3528-2f6c-4322-b2c8-2cdbaf145c9d",
       "personId": "40a17e56-07dd-4e4f-b6b9-4e937ec41699"
     },
     {
@@ -30,7 +30,7 @@
       "email": "analyst@raptor.local",
       "password": "raptor_local_dev_only",
       "name": "Raptor Analyst",
-      "userId": "b775fc35-4082-47e1-9687-29ae92dfed30",
+      "userId": "a51cc02e-430e-4a6a-a1a5-75d5554af7fa",
       "personId": "afe8cbce-7a0d-4420-bc63-19f02cf04c6b"
     },
     {
@@ -38,7 +38,7 @@
       "email": "coach@raptor.local",
       "password": "raptor_local_dev_only",
       "name": "Raptor Coach",
-      "userId": "4493d2c8-1930-4d8e-927b-934ef1093f3b",
+      "userId": "40785c94-1166-42d1-ae0f-564a83de1bf0",
       "personId": "09f02636-16fd-44a1-afcb-7119e400e007"
     },
     {
@@ -46,7 +46,7 @@
       "email": "player@raptor.local",
       "password": "raptor_local_dev_only",
       "name": "Raptor Player",
-      "userId": "e4dc78d6-9830-4297-bf8a-1fbbef2793ac",
+      "userId": "fd60131a-fc95-4138-af55-751dc11c8f6e",
       "personId": "507df750-ec16-4c86-bb25-b05d60d72ef8"
     },
     {
@@ -54,7 +54,7 @@
       "email": "pending@raptor.local",
       "password": "raptor_local_dev_only",
       "name": "Raptor Pending",
-      "userId": "ca761785-3317-447e-b876-d0c8c24a3f25",
+      "userId": "87129ffe-670b-4f28-be38-eae74bc157a9",
       "personId": "50dc10a6-5ada-47fe-ab65-cc9e9bf9c6a1"
     }
   ]

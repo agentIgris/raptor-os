@@ -989,9 +989,14 @@ export function buildAuthOptions(env: AuthEnv, database: AuthDatabase): BetterAu
       storage: "database",
       ...RATE_LIMITS.global,
       customRules: {
-        "/sign-in/email": RATE_LIMITS.signIn,
-        "/sign-in/username": RATE_LIMITS.signIn,
-        "/sign-in/phone-number": RATE_LIMITS.signIn,
+        // The per-address sign-in budget, resolved from the environment: 5 per
+        // minute in production, 30 elsewhere, and whatever
+        // `AUTH_RATE_LIMIT_SIGNIN_MAX` says when it is set. See
+        // `AuthEnv.signInRateLimitMax` for why the number differs, and why the
+        // per-ACCOUNT lockout is the control that actually bounds guessing.
+        "/sign-in/email": { ...RATE_LIMITS.signIn, max: env.signInRateLimitMax },
+        "/sign-in/username": { ...RATE_LIMITS.signIn, max: env.signInRateLimitMax },
+        "/sign-in/phone-number": { ...RATE_LIMITS.signIn, max: env.signInRateLimitMax },
         "/two-factor/verify-totp": RATE_LIMITS.twoFactorVerify,
         "/two-factor/verify-otp": RATE_LIMITS.twoFactorVerify,
         "/two-factor/verify-backup-code": RATE_LIMITS.twoFactorVerify,

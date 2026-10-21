@@ -252,7 +252,7 @@ received against the scope matrix in the source.
 | `/api/auth/*` answers `503 Authentication is not configured` | the process has no `BETTER_AUTH_SECRET` | start with `pnpm dev:local`, not `pnpm dev` |
 | `503` with "Database schema mismatch" | the identity schema was never applied | `node scripts/setup-local.mjs` |
 | `connect ECONNREFUSED 127.0.0.1:5432` | Postgres is not running | start the `postgresql-x64-16` service |
-| `429` on sign-in | the rate limit is 5 attempts per 60 seconds per IP | wait a minute; the seed and the verifier pace themselves |
+| `429` on sign-in | the per-address budget is 5 per minute in production and 30 in development | wait a minute, or set `AUTH_RATE_LIMIT_SIGNIN_MAX`; the per-account lockout is separate and does not move |
 | "role `x` may not be held without an enrolled TOTP authenticator" | a privileged account without the flag | `UPDATE auth_user SET "twoFactorEnabled" = true WHERE email = '...'` |
 | `relation "person_credential_link" does not exist` | the domain schema was applied after the auth schema | `node scripts/setup-local.mjs` applies them in order |
 | The port 3000 is busy | another process holds it | `Get-NetTCPConnection -LocalPort 3000` then stop it, or run on another port with `NEXT_PUBLIC_APP_URL` set to match |
